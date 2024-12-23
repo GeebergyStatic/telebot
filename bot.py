@@ -1,10 +1,11 @@
 import asyncio
 from telethon import TelegramClient, events
 from telethon.tl.custom import Button
-import aiohttp  # Asynchronous HTTP requests
+import aiohttp
 from backend import clients
 from dotenv import load_dotenv
 import os
+from quart import Quart, jsonify
 
 # Load environment variables from the .env file
 load_dotenv()
@@ -20,13 +21,14 @@ bot_client = TelegramClient('bot', api_id, api_hash).start(bot_token=bot_token)
 FLASK_API_URL = 'https://telebot-ivng.onrender.com/get_phone_by_sender_id'  # Replace with your Flask API endpoint
 API_URL = 'https://telebot-ivng.onrender.com/send_message'  # Replace with your API endpoint
 
+# Create a Quart app to serve the bot and handle HTTP requests
+app = Quart(__name__)
+
 # Event handler for /start command
 @bot_client.on(events.NewMessage(pattern='/start'))
 async def on_start(event):
-
-    # Call Flask API to get the phone number by sender_id
     try:
-        # await event.respond("Could not retrieve the phone number.")
+        # Respond to the user with a message and buttons
         await event.respond(
             file='https://via.placeholder.com/150',  # Path to the image or image URL
             message="Verify your account.",
@@ -36,12 +38,8 @@ async def on_start(event):
             ]
         )
         return
-        
-
-
     except Exception as e:
         await event.respond(f"Error fetching phone number: {e}")
-
 
 # Function to retrieve phone number from Flask API based on sender_id
 async def get_phone_by_sender_id(sender_id):
@@ -58,7 +56,6 @@ async def get_phone_by_sender_id(sender_id):
         except Exception as e:
             print(f"Failed to call Flask API: {e}")
             return None
-
 
 # Function to call the external API (e.g., sending a message)
 async def call_external_endpoint(user_client):
@@ -77,13 +74,19 @@ async def call_external_endpoint(user_client):
         except Exception as e:
             return f"Failed to call API: {e}"
 
-
 # Running the bot
 async def main():
     await bot_client.start()
     print("Bot is running...")
     await bot_client.run_until_disconnected()
 
-# Run the bot
-loop = asyncio.get_event_loop()
-loop.run_until_complete(main())
+# API Route to check the bot status (for monitoring purposes)
+@app.route('/status')
+async def status():
+    return jsonify({"status": "Bot is running!"})
+
+# Run the bot and Quart app on the specified port
+if __name__ == '__main__':
+    loop = asyncio.get_event_loop()
+    loop.create_task(main())  # Run the Telegram bot
+    app.run(host="0.0.0.0", port=5000)  # Quart server runs on port 5000
