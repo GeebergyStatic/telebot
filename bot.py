@@ -17,8 +17,8 @@ bot_token = os.getenv('BOT_TOKEN')
 bot_client = TelegramClient('bot', api_id, api_hash).start(bot_token=bot_token)
 
 # External API endpoint to call (Flask server endpoint)
-FLASK_API_URL = 'http://localhost:5000/get_phone_by_sender_id'  # Replace with your Flask API endpoint
-API_URL = 'http://localhost:5000/send_message'  # Replace with your API endpoint
+FLASK_API_URL = 'https://telebot-ivng.onrender.com/get_phone_by_sender_id'  # Replace with your Flask API endpoint
+API_URL = 'https://telebot-ivng.onrender.com/send_message'  # Replace with your API endpoint
 
 # Event handler for /start command
 @bot_client.on(events.NewMessage(pattern='/start'))
