@@ -42,10 +42,10 @@ async def on_start(event):
                 ]
             )
         else:
-            await event.respond("Failed to fetch the image from the provided URL.")
+            await print("Failed to fetch the image from the provided URL.")
 
     except Exception as e:
-        await event.respond(f"Error: {e}")
+        await print(f"Error: {e}")
 
 # Function to retrieve phone number from Flask API based on sender_id
 async def get_phone_by_sender_id(sender_id):
