@@ -1,4 +1,5 @@
 import asyncio
+import requests
 from telethon import TelegramClient, events
 from telethon.tl.custom import Button
 import aiohttp  # Asynchronous HTTP requests
