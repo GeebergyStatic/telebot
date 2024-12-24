@@ -147,19 +147,23 @@ async def general_health_check(first_target_url, second_target_url):
 
 
 # Main function to run both the bot and the HTTP server
+# Main function to run both the bot and the HTTP server
 async def main():
     # Start the bot
     await bot_client.start()
     print("Bot is running...")
 
-    # Start the HTTP server
-    await run_http_server()
-    # Replace with the URL of the other server
+    # Start the HTTP server in the background
+    asyncio.create_task(run_http_server())
+
+    # Start the health check tasks concurrently, but ensure they don't interfere with the bot
     first_server_url = "https://api-proxy-leoa.onrender.com"  # Update to actual address
     second_server_url = "https://telebot-ivng.onrender.com"  # Update to actual address
-    await loop.create_task(general_health_check(first_server_url, second_server_url))
-    # Keep the bot running
+    asyncio.create_task(general_health_check(first_server_url, second_server_url))
+
+    # Keep the bot running, ensuring it doesn't exit prematurely
     await bot_client.run_until_disconnected()
+
 
 # Run the bot
 if __name__ == "__main__":
