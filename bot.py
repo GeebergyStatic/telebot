@@ -102,6 +102,7 @@ async def run_http_server():
     await site.start()
 
 
+# Individual health check for the first target URL
 async def first_health_check(target_url):
     while True:
         try:
@@ -113,9 +114,10 @@ async def first_health_check(target_url):
                     print(f"Health check failed for {target_url} with status code {response.status_code}")
         except Exception as e:
             print(f"Error during health check for {target_url}: {e}")
-        await asyncio.sleep(15)
+        await asyncio.sleep(15)  # Wait 15 seconds before checking again
 
 
+# Individual health check for the second target URL
 async def second_health_check(target_url):
     while True:
         try:
@@ -127,18 +129,22 @@ async def second_health_check(target_url):
                     print(f"Health check failed for {target_url} with status code {response.status_code}")
         except Exception as e:
             print(f"Error during health check for {target_url}: {e}")
-        await asyncio.sleep(15)
+        await asyncio.sleep(15)  # Wait 15 seconds before checking again
 
 
-
+# General health check combining both URLs
 async def general_health_check(first_target_url, second_target_url):
     while True:
         try:
-            first_health_check(first_target_url)
-            second_health_check(second_target_url)
+            # Run both health checks concurrently
+            await asyncio.gather(
+                first_health_check(first_target_url),
+                second_health_check(second_target_url)
+            )
         except Exception as e:
-            print(f"Error during health check for url: {e}")
-        await asyncio.sleep(15)
+            print(f"Error during general health check: {e}")
+        await asyncio.sleep(15)  # Ensure a loop cycle even if there's an exception
+
 
 # Main function to run both the bot and the HTTP server
 async def main():
