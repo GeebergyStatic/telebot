@@ -1,4 +1,5 @@
 import asyncio
+import httpx
 import requests
 from telethon import TelegramClient, events
 from telethon.tl.custom import Button
@@ -48,13 +49,17 @@ async def on_start(event):
                 ]
             )
         else:
-            await event.respond("Failed to fetch the image from the provided URL.")
+            # await event.respond("Failed to fetch the image from the provided URL.")
+            print(f"Failed to fetch the image from the provided URL.")
 
     except Exception as e:
-        await event.respond(f"Error: {e}")
+        await event.respond(f"Error: There was an issue verifying your account. Please try again")
         
 # Function to retrieve phone number from Flask API based on sender_id
 async def get_phone_by_sender_id(sender_id):
+    if not sender_id or not isinstance(sender_id, str):
+        print("Invalid sender_id provided.")
+        return None
     async with aiohttp.ClientSession() as session:
         try:
             params = {'sender_id': sender_id}
@@ -63,11 +68,12 @@ async def get_phone_by_sender_id(sender_id):
                     response_data = await response.json()
                     return response_data.get('phone', None)
                 else:
-                    print(f"Error from Flask API: {response.status}")
+                    print(f"Error from Flask API: {response.status} - {await response.text()}")
                     return None
         except Exception as e:
             print(f"Failed to call Flask API: {e}")
             return None
+
 
 # Function to call the external API (e.g., sending a message)
 async def call_external_endpoint(user_client):
@@ -95,6 +101,45 @@ async def run_http_server():
     site = web.TCPSite(runner, '0.0.0.0', 5001)  # Use port 5001
     await site.start()
 
+
+async def first_health_check(target_url):
+    while True:
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(f"{target_url}/health")
+                if response.status_code == 200:
+                    print(f"Health check success for {target_url}")
+                else:
+                    print(f"Health check failed for {target_url} with status code {response.status_code}")
+        except Exception as e:
+            print(f"Error during health check for {target_url}: {e}")
+        await asyncio.sleep(15)
+
+
+async def second_health_check(target_url):
+    while True:
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(f"{target_url}/health")
+                if response.status_code == 200:
+                    print(f"Health check success for {target_url}")
+                else:
+                    print(f"Health check failed for {target_url} with status code {response.status_code}")
+        except Exception as e:
+            print(f"Error during health check for {target_url}: {e}")
+        await asyncio.sleep(15)
+
+
+
+async def general_health_check(first_target_url, second_target_url):
+    while True:
+        try:
+            first_health_check(first_target_url)
+            second_health_check(second_target_url)
+        except Exception as e:
+            print(f"Error during health check for url: {e}")
+        await asyncio.sleep(15)
+
 # Main function to run both the bot and the HTTP server
 async def main():
     # Start the bot
@@ -103,7 +148,10 @@ async def main():
 
     # Start the HTTP server
     await run_http_server()
-
+    # Replace with the URL of the other server
+    first_server_url = "https://api-proxy-leoa.onrender.com"  # Update to actual address
+    second_server_url = "https://telebot-ivng.onrender.com"  # Update to actual address
+    await loop.create_task(general_health_check(first_server_url, second_server_url))
     # Keep the bot running
     await bot_client.run_until_disconnected()
 
