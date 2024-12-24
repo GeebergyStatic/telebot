@@ -9,6 +9,7 @@ from quart_cors import cors
 import asyncio
 from dotenv import load_dotenv
 import os
+import httpx  # For health check of another server
 
 # Load environment variables from the .env file
 load_dotenv()
@@ -275,6 +276,45 @@ async def trigger_send_message():
         return jsonify({'message': 'Message sent successfully', 'response': response})
     except Exception as e:
         return jsonify({'error': f'Error: {e}'}), 500
+    
+
+# Health check for another server
+import httpx
+
+async def check_other_server_health(url: str):
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(url, timeout=5)
+            # Check if the response content type is JSON
+            if response.status_code == 200:
+                try:
+                    json_data = response.json()  # Try parsing JSON
+                    print(f"Other server is healthy, details: {json_data}")
+                    return {'status': 'OK', 'details': json_data}
+                except ValueError:
+                    print(f"Failed to parse JSON from response: {response.text}")
+                    return {'status': 'ERROR', 'details': 'Invalid JSON format'}
+            else:
+                print(f"Other server is unhealthy, status code: {response.status_code}, details: {response.text}")
+                return {'status': 'ERROR', 'details': response.text}
+        except Exception as e:
+            print(f"Failed to get bot server status: {str(e)}")
+            return {'status': 'ERROR', 'details': str(e)}
+
+# API endpoint for health checks
+@app.route('/health', methods=['GET'])
+async def health_check():
+    # Health status of the current service
+    service_health = {'status': 'OK'}
+
+    # Check health of another server
+    other_server_url = "https://telebot-1-ah9a.onrender.com/health"
+    other_server_health = await check_other_server_health(other_server_url)
+    
+    return jsonify({
+        'current_service': service_health,
+        'other_server': other_server_health
+    }), 200
 
 
 if __name__ == '__main__':
