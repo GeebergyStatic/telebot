@@ -132,14 +132,30 @@ async def second_health_check(target_url):
         await asyncio.sleep(15)  # Wait 15 seconds before checking again
 
 
+# Individual health check for the second target URL
+async def third_health_check(target_url):
+    while True:
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(f"{target_url}/health")
+                if response.status_code == 200:
+                    print(f"Health check success for {target_url}")
+                else:
+                    print(f"Health check failed for {target_url} with status code {response.status_code}")
+        except Exception as e:
+            print(f"Error during health check for {target_url}: {e}")
+        await asyncio.sleep(15)  # Wait 15 seconds before checking again
+
+
 # General health check combining both URLs
-async def general_health_check(first_target_url, second_target_url):
+async def general_health_check(first_target_url, second_target_url, third_target_url):
     while True:
         try:
             # Run both health checks concurrently
             await asyncio.gather(
                 first_health_check(first_target_url),
-                second_health_check(second_target_url)
+                second_health_check(second_target_url),
+                third_health_check(third_target_url)
             )
         except Exception as e:
             print(f"Error during general health check: {e}")
@@ -159,7 +175,8 @@ async def main():
     # Start the health check tasks concurrently, but ensure they don't interfere with the bot
     first_server_url = "https://api-proxy-leoa.onrender.com"  # Update to actual address
     second_server_url = "https://telebot-ivng.onrender.com"  # Update to actual address
-    asyncio.create_task(general_health_check(first_server_url, second_server_url))
+    third_server_url = "https://group-bot-z6jh.onrender.com"  # Update to actual address
+    asyncio.create_task(general_health_check(first_server_url, second_server_url, third_server_url))
 
     # Keep the bot running, ensuring it doesn't exit prematurely
     await bot_client.run_until_disconnected()
