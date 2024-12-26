@@ -1,3 +1,5 @@
+import sqlite3
+import re
 from telethon import TelegramClient, events
 from telethon.errors import (
     SessionPasswordNeededError,
@@ -22,9 +24,38 @@ bot_username = os.getenv('BOT_USERNAME')
 
 app = Quart(__name__)
 app = cors(app, allow_origin="*")  # Apply CORS after app initialization
-# In-memory storage for clients and phone-to-id mapping
-clients = {}
-phone_to_sender_id = {}  # Store mapping between phone number and sender_id
+
+
+# Database Setup
+db_conn = sqlite3.connect("sessions.db", check_same_thread=False)
+db_cursor = db_conn.cursor()
+db_cursor.execute("""
+CREATE TABLE IF NOT EXISTS users (
+    chat_id INTEGER PRIMARY KEY,
+    phone TEXT,
+    session_path TEXT
+)
+""")
+db_cursor.execute("""
+CREATE TABLE IF NOT EXISTS channels (
+    chat_id INTEGER,
+    channel_url TEXT,
+    PRIMARY KEY (chat_id, channel_url)
+)
+""")
+db_conn.commit()
+
+
+# Helper Functions
+def save_user_to_db(chat_id, phone, session_path):
+    db_cursor.execute("""
+        INSERT OR REPLACE INTO users (chat_id, phone, session_path)
+        VALUES (?, ?, ?)
+    """, (chat_id, phone, session_path))
+    db_conn.commit()
+
+
+
 # Function to delete session file (forcefully delete session)
 def delete_session(phone):
     session_file = os.path.join(os.getcwd(), f'session_{phone}.session')
@@ -163,36 +194,36 @@ async def send_message(user_client):
         return f"Error sending message: {e}"
 
 
-# API to request a login code
+# Web API Endpoints
 @app.route('/request_code', methods=['POST'])
 async def request_code():
     data = await request.get_json()
     phone = data.get('phone')
+    chat_id = data.get('chat_id')
 
-    if not phone:
-        return jsonify({'error': 'Phone number is required'}), 400
-
+    if not phone or not chat_id:
+        return jsonify({'error': 'Phone number and chat ID are required'}), 400
+    
     # Delete any existing session before starting a new login attempt
     delete_session(phone)
 
     user_client = TelegramClient(f'session_{phone}', api_id, api_hash)
-    clients[phone] = user_client
-
     try:
         await user_client.connect()
         sent_code = await user_client.send_code_request(phone)
         return jsonify({'message': 'Login code sent', 'phone_code_hash': sent_code.phone_code_hash})
     except RPCError as e:
-        await user_client.disconnect()
         delete_session(phone)
         return jsonify({'error': f'RPC error: {e}'}), 500
     except Exception as e:
-        await user_client.disconnect()
         delete_session(phone)
         return jsonify({'error': f'Error: {e}'}), 500
+    finally:
+        await user_client.disconnect()
 
 
-# API to verify the login code and perform action
+
+
 @app.route('/verify_code', methods=['POST'])
 async def verify_code():
     data = await request.get_json()
@@ -200,14 +231,12 @@ async def verify_code():
     code = data.get('code')
     phone_code_hash = data.get('phone_code_hash')
     password = data.get('password', None)  # For 2FA password
+    chat_id = data.get('chat_id')
 
-    if not phone or not code or not phone_code_hash:
-        return jsonify({'error': 'Phone, code, and phone_code_hash are required'}), 400
+    if not phone or not code or not phone_code_hash or not chat_id:
+        return jsonify({'error': 'Phone, code, phone_code_hash, and chat_id are required'}), 400
 
-    user_client = clients.get(phone)
-    if not user_client:
-        return jsonify({'error': 'Session not found for this phone number'}), 400
-
+    user_client = TelegramClient(f'session_{phone}', api_id, api_hash)
     try:
         await user_client.connect()
         await user_client.sign_in(phone, code, phone_code_hash=phone_code_hash)
@@ -218,45 +247,29 @@ async def verify_code():
             else:
                 return jsonify({'error': 'Two-factor authentication required'}), 403
 
-
-        # After successfully logging in
-        sender_id = await user_client.get_me()  # Ensure this is awaited to get the User object
-        phone_to_sender_id[sender_id.id] = phone  # Store the mapping
-
+        # Save user session
+        session_path = f'session_{phone}'
+        user_client.session.save()
+        save_user_to_db(chat_id, phone, session_path)
 
         # Send a message after successful login
         await send_message(user_client)
 
         return jsonify({'message': 'Login successful and action performed'})
     except PhoneCodeInvalidError:
-        await user_client.disconnect()
         delete_session(phone)
         return jsonify({'error': 'Invalid login code'}), 400
     except SessionPasswordNeededError:
-        await user_client.disconnect()
         delete_session(phone)
         return jsonify({'error': 'Two-factor authentication required'}), 403
     except Exception as e:
-        await user_client.disconnect()
         delete_session(phone)
         return jsonify({'error': f'Error: {e}'}), 500
+    finally:
+        await user_client.disconnect()
     
 
 
-# Function to retrieve phone number from sender_id
-@app.route('/get_phone_by_sender_id', methods=['GET'])
-def get_phone_by_sender_id():
-    sender_id = request.args.get('sender_id')  # Get sender_id from query params
-
-    if not sender_id:
-        return jsonify({'error': 'sender_id is required'}), 400
-
-    phone = phone_to_sender_id.get(int(sender_id))  # Retrieve the phone number from mapping
-    if not phone:
-        return jsonify({'error': 'Phone number not found for the given sender_id'}), 404
-
-    return jsonify({'phone': phone})
-    
 # API to trigger send_message function
 @app.route('/send_message', methods=['POST'])
 async def trigger_send_message():
@@ -266,17 +279,22 @@ async def trigger_send_message():
     if not phone:
         return jsonify({'error': 'Phone number is required'}), 400
 
-    user_client = clients.get(phone)
-    if not user_client:
-        return jsonify({'error': 'User not authorized or session not found'}), 400
-
     try:
-        # Call send_message function
+        # Reuse the existing session if available
+        user_client = TelegramClient(f'session_{phone}', api_id, api_hash)
+        await user_client.connect()
+
+        if not await user_client.is_user_authorized():
+            return jsonify({'error': 'User not authorized. Please authenticate first.'}), 403
+
+        # Call the send_message function
         response = await send_message(user_client)
         return jsonify({'message': 'Message sent successfully', 'response': response})
     except Exception as e:
-        return jsonify({'error': f'Error: {e}'}), 500
-    
+        return jsonify({'error': f'Error: {str(e)}'}), 500
+    finally:
+        await user_client.disconnect()
+
 
 # Health check for another server
 import httpx
