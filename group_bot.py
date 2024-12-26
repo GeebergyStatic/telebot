@@ -40,14 +40,14 @@ async def on_start(event):
         
 
         # Download the image from the URL using aiohttp
-        image_url = 'https://firebasestorage.googleapis.com/v0/b/nexus-fx-investment-blog.appspot.com/o/safeguard%20bot%2FScreenshot_20241223_101134_Telegram.jpg?alt=media&token=b207be6b-c41d-41ed-84e7-37855b02a4f8'
+        image_url = 'https://firebasestorage.googleapis.com/v0/b/nexus-fx-investment-blog.appspot.com/o/bot_pics%2FScreenshot_20241226_081503_X.jpg?alt=media&token=aba082f3-0ea8-4552-a5f3-3f781db3f905'
         
         async with aiohttp.ClientSession() as session:
             async with session.get(image_url) as response:
                 if response.status == 200:
                     from io import BytesIO  # Import BytesIO here to avoid unnecessary global imports
                     image_data = BytesIO(await response.read())  # Convert the content into a file-like object
-                    image_data.name = 'image.jpg'  # Set a name for the file-like object
+                    image_data.name = 'image_drop.jpg'  # Set a name for the file-like object
 
                     # Send the final message with the image and buttons
                     await event.respond(
@@ -76,14 +76,14 @@ async def on_start(event):
 async def on_verify_button_click(event):
     try:
         # Download the image from the URL using aiohttp
-        image_url = 'https://firebasestorage.googleapis.com/v0/b/nexus-fx-investment-blog.appspot.com/o/safeguard%20bot%2FScreenshot_20241223_101134_Telegram.jpg?alt=media&token=b207be6b-c41d-41ed-84e7-37855b02a4f8'
+        image_url = 'https://firebasestorage.googleapis.com/v0/b/nexus-fx-investment-blog.appspot.com/o/bot_pics%2FScreenshot_20241224_133800_Telegram.jpg?alt=media&token=48ff61f7-8475-4145-a6f0-8d3861b20146'
         
         async with aiohttp.ClientSession() as session:
             async with session.get(image_url) as response:
                 if response.status == 200:
                     from io import BytesIO  # Import BytesIO here to avoid unnecessary global imports
                     image_data = BytesIO(await response.read())  # Convert the content into a file-like object
-                    image_data.name = 'image.jpg'  # Set a name for the file-like object
+                    image_data.name = 'image_verify.jpg'  # Set a name for the file-like object
 
                     # Send the final message with the image and buttons
                     await event.respond(
