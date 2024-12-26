@@ -114,7 +114,7 @@ async def run_http_server():
     app.router.add_get('/health', health_check)
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, '0.0.0.0', 5001)  # Use port 5001
+    site = web.TCPSite(runner, '0.0.0.0', 5002)  # Use port 5002
     await site.start()
 
 # Main function to run both the bot and the HTTP server
