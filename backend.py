@@ -45,16 +45,24 @@ CREATE TABLE IF NOT EXISTS channels (
 """)
 db_conn.commit()
 
-db_cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-tables = db_cursor.fetchall()
-print("Tables in database:", tables)
+def check_table_content():
+    tables = ['users', 'channels']
+    for table in tables:
+        print(f"Contents of table '{table}':")
+        try:
+            db_cursor.execute(f"SELECT * FROM {table}")
+            rows = db_cursor.fetchall()
+            if rows:
+                for row in rows:
+                    print(row)
+            else:
+                print("Table is empty.")
+        except Exception as e:
+            print(f"Error reading table '{table}': {e}")
+        print()  # Add a blank line for better readability
 
-# Check columns in each table
-for table_name in tables:
-    db_cursor.execute(f"PRAGMA table_info({table_name[0]});")
-    columns = db_cursor.fetchall()
-    print(f"Columns in {table_name[0]}:", columns)
-
+# Call the function
+check_table_content()
 
 # Helper Functions
 def save_user_to_db(chat_id, phone, session_path):
