@@ -11,6 +11,8 @@ from quart_cors import cors
 import asyncio
 from dotenv import load_dotenv
 import os
+import psycopg2
+from psycopg2 import sql
 import httpx  # For health check of another server
 
 # Load environment variables from the .env file
@@ -26,34 +28,54 @@ app = Quart(__name__)
 app = cors(app, allow_origin="*")  # Apply CORS after app initialization
 
 
+
 # Database Setup
-db_path = os.path.abspath("sessions.db")
-db_conn = sqlite3.connect(db_path)
-print(f"Database path: {db_path}")
-print("Current working directory:", os.getcwd())
-db_cursor = db_conn.cursor()
+# Use Render's environment variables for database connection details
+DB_HOST = os.getenv("DB_HOST")
+DB_NAME = os.getenv("DB_NAME")
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "your-db-password")
+DB_PORT = os.getenv("DB_PORT", "5432")
+
+# Connect to PostgreSQL
+try:
+    db_conn = psycopg2.connect(
+        host=DB_HOST,
+        database=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        port=DB_PORT
+    )
+    db_cursor = db_conn.cursor()
+    print("Connected to PostgreSQL database successfully.")
+except Exception as e:
+    print(f"Error connecting to PostgreSQL: {e}")
+    exit()
+
+# Create Tables
 db_cursor.execute("""
 CREATE TABLE IF NOT EXISTS users (
-    chat_id INTEGER PRIMARY KEY,
+    chat_id BIGINT PRIMARY KEY,
     phone TEXT,
     session_path TEXT
 )
 """)
 db_cursor.execute("""
 CREATE TABLE IF NOT EXISTS channels (
-    chat_id INTEGER,
+    chat_id BIGINT,
     channel_url TEXT,
     PRIMARY KEY (chat_id, channel_url)
 )
 """)
 db_conn.commit()
 
+# Helper Functions
 def check_table_content():
     tables = ['users', 'channels']
     for table in tables:
         print(f"Contents of table '{table}':")
         try:
-            db_cursor.execute(f"SELECT * FROM {table}")
+            db_cursor.execute(sql.SQL("SELECT * FROM {}").format(sql.Identifier(table)))
             rows = db_cursor.fetchall()
             if rows:
                 for row in rows:
@@ -66,18 +88,24 @@ def check_table_content():
 
 def save_user_to_db(chat_id, phone, session_path):
     db_cursor.execute("""
-        INSERT OR REPLACE INTO users (chat_id, phone, session_path)
-        VALUES (?, ?, ?)
+        INSERT INTO users (chat_id, phone, session_path)
+        VALUES (%s, %s, %s)
+        ON CONFLICT (chat_id) DO UPDATE
+        SET phone = EXCLUDED.phone,
+            session_path = EXCLUDED.session_path
     """, (chat_id, phone, session_path))
     db_conn.commit()
     # Call the function to check table contents
     check_table_content()
 
 def get_session_for_user(chat_id):
-    db_cursor.execute("SELECT session_path FROM users WHERE chat_id = ?", (chat_id,))
+    db_cursor.execute("SELECT session_path FROM users WHERE chat_id = %s", (chat_id,))
     result = db_cursor.fetchone()
     return result[0] if result else None
 
+# Example Usage
+# save_user_to_db(7905915877, "+2348064801910", "session_+2348064801910")
+# print(get_session_for_user(7905915877))
 
 
 # Function to delete session file (forcefully delete session)
