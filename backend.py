@@ -27,7 +27,7 @@ app = cors(app, allow_origin="*")  # Apply CORS after app initialization
 
 
 # Database Setup
-db_conn = sqlite3.connect("./sessions.db", check_same_thread=False)
+db_conn = sqlite3.connect("sessions.db")
 db_cursor = db_conn.cursor()
 db_cursor.execute("""
 CREATE TABLE IF NOT EXISTS users (
