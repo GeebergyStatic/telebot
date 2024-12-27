@@ -81,16 +81,6 @@ def get_session_for_user(chat_id):
 def is_user_authenticated(chat_id):
     return get_session_for_user(chat_id) is not None
 
-def save_channel_to_db(chat_id, channel_url):
-    db_cursor.execute("""
-        INSERT OR IGNORE INTO channels (chat_id, channel_url)
-        VALUES (?, ?)
-    """, (chat_id, channel_url))
-    db_conn.commit()
-
-def get_channels_for_user(chat_id):
-    db_cursor.execute("SELECT channel_url FROM channels WHERE chat_id = ?", (chat_id,))
-    return [row[0] for row in db_cursor.fetchall()]
 
 
 # Telegram Bot Commands
