@@ -8,6 +8,8 @@ from telethon.tl.custom import Button
 import aiohttp  # Asynchronous HTTP requests
 from dotenv import load_dotenv
 import os
+import psycopg2
+from psycopg2 import sql
 from aiohttp import web  # For the HTTP server
 
 # Load environment variables from the .env file
