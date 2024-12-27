@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS channels (
 """)
 db_conn.commit()
 
-dedef check_table_content():
+def check_table_content():
     tables = ['users', 'channels']
     for table in tables:
         print(f"Contents of table '{table}':")
