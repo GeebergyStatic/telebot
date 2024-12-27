@@ -40,6 +40,7 @@ try:
         password=DB_PASSWORD,
         port=DB_PORT
     )
+    db_conn.autocommit = True
     db_cursor = db_conn.cursor()
     print("Connected to PostgreSQL database successfully.")
 except Exception as e:
