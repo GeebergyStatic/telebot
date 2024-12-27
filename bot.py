@@ -3,6 +3,7 @@ import re
 import asyncio
 import httpx
 import requests
+from telethon.sessions import StringSession
 from telethon import TelegramClient, events
 from telethon.tl.custom import Button
 import aiohttp  # Asynchronous HTTP requests
@@ -39,12 +40,58 @@ except Exception as e:
     print(f"Error connecting to PostgreSQL: {e}")
     exit()
 
+# create tables
+# Create a table to store the bot's session
+db_cursor.execute("""
+    CREATE TABLE IF NOT EXISTS bot_sessions (
+        id SERIAL PRIMARY KEY,
+        session_data TEXT NOT NULL
+    )
+""")
+db_conn.commit()
+
+
 
 # Helper Functions
-def get_session_for_user(chat_id):
-    db_cursor.execute("SELECT session_path FROM users WHERE chat_id = %s", (chat_id,))
+def save_bot_session(session_string):
+    query = """
+        INSERT INTO bot_sessions (id, session_data)
+        VALUES (1, %s)
+        ON CONFLICT (id) DO UPDATE
+        SET session_data = EXCLUDED.session_data;
+    """
+    db_cursor.execute(query, (session_string,))
+    db_conn.commit()
+    print("Bot session saved successfully.")
+
+
+def get_bot_session():
+    query = "SELECT session_data FROM bot_sessions WHERE id = 1;"
+    db_cursor.execute(query)
     result = db_cursor.fetchone()
     return result[0] if result else None
+
+
+def get_session_from_db(chat_id):
+    query = "SELECT session_data FROM telegram_sessions WHERE chat_id = %s;"
+    db_cursor.execute(query, (chat_id,))
+    result = db_cursor.fetchone()
+    if result:
+        print(f"Session for chat_id {chat_id} retrieved successfully.")
+    return result[0] if result else None
+
+
+# Create bot_client with Persistent Session
+def create_bot_client(api_id, api_hash, bot_token):
+    session_string = get_bot_session()
+    session = StringSession(session_string) if session_string else StringSession()
+    
+    bot_client = TelegramClient(session, api_id, api_hash).start(bot_token=bot_token)
+
+    # Save the session string to the database after starting the bot
+    save_bot_session(bot_client.session.save())
+
+    return bot_client
 
 # Example Usage
 # save_user_to_db(7905915877, "+2348064801910", "session_+2348064801910")
@@ -52,14 +99,15 @@ def get_session_for_user(chat_id):
 
 
 def is_user_authenticated(chat_id):
-    return get_session_for_user(chat_id) is not None
+    return get_session_from_db(chat_id) is not None
 
 # Access the environment variables
 api_id = os.getenv('API_ID')
 api_hash = os.getenv('API_HASH')
 bot_token = os.getenv('BOT_TOKEN')
 
-bot_client = TelegramClient('bot', api_id, api_hash).start(bot_token=bot_token)
+# Initialize the bot client with persistent session
+bot_client = create_bot_client(api_id, api_hash, bot_token)
 
 # External API endpoint to call (Flask server endpoint)
 API_URL = 'https://telebot-ivng.onrender.com/send_message'  # Replace with your API endpoint
