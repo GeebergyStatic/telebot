@@ -6,6 +6,7 @@ from telethon.errors import RPCError
 import asyncio
 from dotenv import load_dotenv
 import os
+import threading
 
 
 # Load environment variables from the .env file
@@ -58,8 +59,6 @@ def save_channel_to_db(chat_id, channel_url):
 def get_channels_for_user(chat_id):
     db_cursor.execute("SELECT channel_url FROM channels WHERE chat_id = ?", (chat_id,))
     return [row[0] for row in db_cursor.fetchall()]
-
-
 
 
 # Telegram Bot Commands
@@ -160,10 +159,15 @@ async def list_channels(event):
     else:
         await event.respond("Joined channels:\n" + "\n".join(channels))
 
+
+# Health Check Endpoint
+@app.route('/health', methods=['GET'])
+def health_check():
+    return jsonify({"status": "Bot is running!"}), 200
+
+
 # Run Flask and Bot
 if __name__ == '__main__':
-    import threading
-
     def run_flask():
         app.run(host='0.0.0.0', port=5000)
 
