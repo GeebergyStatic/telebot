@@ -54,6 +54,11 @@ def save_user_to_db(chat_id, phone, session_path):
     """, (chat_id, phone, session_path))
     db_conn.commit()
 
+def get_session_for_user(chat_id):
+    db_cursor.execute("SELECT session_path FROM users WHERE chat_id = ?", (chat_id,))
+    result = db_cursor.fetchone()
+    return result[0] if result else None
+
 
 
 # Function to delete session file (forcefully delete session)
@@ -274,14 +279,19 @@ async def verify_code():
 @app.route('/send_message', methods=['POST'])
 async def trigger_send_message():
     data = await request.get_json()
-    phone = data.get('phone')
+    chat_id = data.get('chat_id')
 
-    if not phone:
-        return jsonify({'error': 'Phone number is required'}), 400
+    if not chat_id:
+        return jsonify({'error': 'Chat id is required'}), 400
 
+    
     try:
         # Reuse the existing session if available
-        user_client = TelegramClient(f'session_{phone}', api_id, api_hash)
+        session_path = get_session_for_user(chat_id)
+        if not session_path:
+            return jsonify({'error': 'No session found for this user'}), 404
+
+        user_client = TelegramClient(session_path, api_id, api_hash)
         await user_client.connect()
 
         if not await user_client.is_user_authorized():
@@ -293,6 +303,7 @@ async def trigger_send_message():
     except Exception as e:
         return jsonify({'error': f'Error: {str(e)}'}), 500
     finally:
+        # Ensure the client disconnects after the operation
         await user_client.disconnect()
 
 
