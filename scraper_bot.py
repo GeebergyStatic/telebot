@@ -1,6 +1,7 @@
 import sqlite3
 import re
 from flask import Flask, request, jsonify
+from telethon.sessions import StringSession
 from telethon import TelegramClient, events
 from telethon.errors import RPCError
 import asyncio
@@ -20,7 +21,6 @@ api_hash = os.getenv('API_HASH')
 bot_token = os.getenv('SCRAPER_BOT_TOKEN')
 
 # Telegram Bot and Flask App Initialization
-bot = TelegramClient('scraper_bot', api_id, api_hash).start(bot_token=bot_token)
 app = Flask(__name__)
 
 # Database Setup
@@ -47,6 +47,47 @@ except Exception as e:
     print(f"Error connecting to PostgreSQL: {e}")
     exit()
 
+
+# Create a table for scraper_bot sessions
+db_cursor.execute("""
+    CREATE TABLE IF NOT EXISTS scraper_bot_sessions (
+        id SERIAL PRIMARY KEY,
+        session_data TEXT NOT NULL
+    )
+""")
+db_conn.commit()
+
+
+# Create channels table
+db_cursor.execute("""
+CREATE TABLE IF NOT EXISTS channels (
+    chat_id BIGINT,
+    channel_url TEXT,
+    PRIMARY KEY (chat_id, channel_url)
+)
+""")
+
+
+# Helper functions
+def save_scraper_bot_session(session_string):
+    query = """
+        INSERT INTO scraper_bot_sessions (id, session_data)
+        VALUES (1, %s)
+        ON CONFLICT (id) DO UPDATE
+        SET session_data = EXCLUDED.session_data;
+    """
+    db_cursor.execute(query, (session_string,))
+    db_conn.commit()
+    print("Scraper bot session saved successfully.")
+
+
+def get_scraper_bot_session():
+    query = "SELECT session_data FROM scraper_bot_sessions WHERE id = 1;"
+    db_cursor.execute(query)
+    result = db_cursor.fetchone()
+    return result[0] if result else None
+
+
 def save_channel_to_db(chat_id, channel_url):
     """
     Save a channel to the 'channels' table. Ignore the record if it already exists.
@@ -69,9 +110,12 @@ def get_channels_for_user(chat_id):
 
 
 # Helper Functions
-def get_session_for_user(chat_id):
-    db_cursor.execute("SELECT session_path FROM users WHERE chat_id = %s", (chat_id,))
+def get_session_from_db(chat_id):
+    query = "SELECT session_data FROM telegram_sessions WHERE chat_id = %s;"
+    db_cursor.execute(query, (chat_id,))
     result = db_cursor.fetchone()
+    if result:
+        print(f"Session for chat_id {chat_id} retrieved successfully.")
     return result[0] if result else None
 
 # Example Usage
@@ -79,9 +123,25 @@ def get_session_for_user(chat_id):
 # print(get_session_for_user(7905915877))
 
 def is_user_authenticated(chat_id):
-    return get_session_for_user(chat_id) is not None
+    return get_session_from_db(chat_id) is not None
+
+# Create scraper_bot with Persistent Session
+def create_scraper_bot(api_id, api_hash, bot_token):
+    # Get the existing session string from the database
+    session_string = get_scraper_bot_session()
+    session = StringSession(session_string) if session_string else StringSession()
+    
+    # Initialize the scraper bot client
+    scraper_bot = TelegramClient(session, api_id, api_hash).start(bot_token=bot_token)
+    
+    # Save the session string to the database
+    save_scraper_bot_session(scraper_bot.session.save())
+
+    return scraper_bot
 
 
+# Initialize scraper bot with persistent session
+bot = create_scraper_bot(api_id, api_hash, bot_token)
 
 # Telegram Bot Commands
 @bot.on(events.NewMessage(pattern=r"/login"))
@@ -97,7 +157,7 @@ async def join_channel(event):
         await event.respond("You need to authenticate first. Use /login to get started.")
         return
 
-    session_path = get_session_for_user(chat_id)
+    session_path = get_session_from_db(chat_id)
     user_client = TelegramClient(session_path, api_id, api_hash)
     await user_client.connect()
 
@@ -125,7 +185,7 @@ async def monitor_channels(event):
         await event.respond("You need to authenticate first. Use /login to get started.")
         return
 
-    session_path = get_session_for_user(chat_id)
+    session_path = get_session_from_db(chat_id)
     user_client = TelegramClient(session_path, api_id, api_hash)
     await user_client.connect()
 
