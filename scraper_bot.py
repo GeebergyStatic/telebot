@@ -47,22 +47,26 @@ except Exception as e:
     print(f"Error connecting to PostgreSQL: {e}")
     exit()
 
-# Create Tables
-db_cursor.execute("""
-CREATE TABLE IF NOT EXISTS users (
-    chat_id BIGINT PRIMARY KEY,
-    phone TEXT,
-    session_path TEXT
-)
-""")
-db_cursor.execute("""
-CREATE TABLE IF NOT EXISTS channels (
-    chat_id BIGINT,
-    channel_url TEXT,
-    PRIMARY KEY (chat_id, channel_url)
-)
-""")
-db_conn.commit()
+def save_channel_to_db(chat_id, channel_url):
+    """
+    Save a channel to the 'channels' table. Ignore the record if it already exists.
+    """
+    query = """
+        INSERT INTO channels (chat_id, channel_url)
+        VALUES (%s, %s)
+        ON CONFLICT DO NOTHING;
+    """
+    db_cursor.execute(query, (chat_id, channel_url))
+
+def get_channels_for_user(chat_id):
+    """
+    Retrieve all channel URLs associated with a specific chat_id.
+    """
+    query = "SELECT channel_url FROM channels WHERE chat_id = %s;"
+    db_cursor.execute(query, (chat_id,))
+    return [row[0] for row in db_cursor.fetchall()]
+
+
 
 # Helper Functions
 def get_session_for_user(chat_id):
