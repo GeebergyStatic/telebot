@@ -6,6 +6,8 @@ from telethon.errors import RPCError
 import asyncio
 from dotenv import load_dotenv
 import os
+import psycopg2
+from psycopg2 import sql
 import threading
 
 
@@ -22,18 +24,39 @@ bot = TelegramClient('scraper_bot', api_id, api_hash).start(bot_token=bot_token)
 app = Flask(__name__)
 
 # Database Setup
-db_conn = sqlite3.connect("sessions.db", check_same_thread=False)
-db_cursor = db_conn.cursor()
+# Use Render's environment variables for database connection details
+DB_HOST = os.getenv("DB_HOST")
+DB_NAME = os.getenv("DB_NAME")
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_PORT = os.getenv("DB_PORT", "5432")
+
+# Connect to PostgreSQL
+try:
+    db_conn = psycopg2.connect(
+        host=DB_HOST,
+        database=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        port=DB_PORT
+    )
+    db_cursor = db_conn.cursor()
+    print("Connected to PostgreSQL database successfully.")
+except Exception as e:
+    print(f"Error connecting to PostgreSQL: {e}")
+    exit()
+
+# Create Tables
 db_cursor.execute("""
 CREATE TABLE IF NOT EXISTS users (
-    chat_id INTEGER PRIMARY KEY,
+    chat_id BIGINT PRIMARY KEY,
     phone TEXT,
     session_path TEXT
 )
 """)
 db_cursor.execute("""
 CREATE TABLE IF NOT EXISTS channels (
-    chat_id INTEGER,
+    chat_id BIGINT,
     channel_url TEXT,
     PRIMARY KEY (chat_id, channel_url)
 )
@@ -42,9 +65,13 @@ db_conn.commit()
 
 # Helper Functions
 def get_session_for_user(chat_id):
-    db_cursor.execute("SELECT session_path FROM users WHERE chat_id = ?", (chat_id,))
+    db_cursor.execute("SELECT session_path FROM users WHERE chat_id = %s", (chat_id,))
     result = db_cursor.fetchone()
     return result[0] if result else None
+
+# Example Usage
+# save_user_to_db(7905915877, "+2348064801910", "session_+2348064801910")
+# print(get_session_for_user(7905915877))
 
 def is_user_authenticated(chat_id):
     return get_session_for_user(chat_id) is not None
