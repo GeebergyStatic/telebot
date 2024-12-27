@@ -4,7 +4,6 @@ import requests
 from telethon import TelegramClient, events
 from telethon.tl.custom import Button
 import aiohttp  # Asynchronous HTTP requests
-from backend import clients
 from dotenv import load_dotenv
 import os
 from aiohttp import web  # For the HTTP server
