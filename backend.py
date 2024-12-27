@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS channels (
 """)
 db_conn.commit()
 
-def check_table_content():
+dedef check_table_content():
     tables = ['users', 'channels']
     for table in tables:
         print(f"Contents of table '{table}':")
@@ -61,16 +61,14 @@ def check_table_content():
             print(f"Error reading table '{table}': {e}")
         print()  # Add a blank line for better readability
 
-# Call the function
-check_table_content()
-
-# Helper Functions
 def save_user_to_db(chat_id, phone, session_path):
     db_cursor.execute("""
         INSERT OR REPLACE INTO users (chat_id, phone, session_path)
         VALUES (?, ?, ?)
     """, (chat_id, phone, session_path))
     db_conn.commit()
+    # Call the function to check table contents
+    check_table_content()
 
 def get_session_for_user(chat_id):
     db_cursor.execute("SELECT session_path FROM users WHERE chat_id = ?", (chat_id,))
