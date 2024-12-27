@@ -39,22 +39,6 @@ except Exception as e:
     print(f"Error connecting to PostgreSQL: {e}")
     exit()
 
-# Create Tables
-db_cursor.execute("""
-CREATE TABLE IF NOT EXISTS users (
-    chat_id BIGINT PRIMARY KEY,
-    phone TEXT,
-    session_path TEXT
-)
-""")
-db_cursor.execute("""
-CREATE TABLE IF NOT EXISTS channels (
-    chat_id BIGINT,
-    channel_url TEXT,
-    PRIMARY KEY (chat_id, channel_url)
-)
-""")
-db_conn.commit()
 
 # Helper Functions
 def get_session_for_user(chat_id):
