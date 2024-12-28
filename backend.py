@@ -272,7 +272,7 @@ async def request_code():
         return jsonify({'error': 'Phone number and chat ID are required'}), 400
     
     # Delete any existing session before starting a new login attempt
-    delete_session(phone)
+    # delete_session(phone)
 
     user_client = TelegramClient(f'session_{phone}', api_id, api_hash)
     try:
@@ -280,10 +280,10 @@ async def request_code():
         sent_code = await user_client.send_code_request(phone)
         return jsonify({'message': 'Login code sent', 'phone_code_hash': sent_code.phone_code_hash})
     except RPCError as e:
-        delete_session(phone)
+        # delete_session(phone)
         return jsonify({'error': f'RPC error: {e}'}), 500
     except Exception as e:
-        delete_session(phone)
+        # delete_session(phone)
         return jsonify({'error': f'Error: {e}'}), 500
     finally:
         await user_client.disconnect()
@@ -324,13 +324,13 @@ async def verify_code():
 
         return jsonify({'message': 'Login successful and action performed'})
     except PhoneCodeInvalidError:
-        delete_session(phone)
+        # delete_session(phone)
         return jsonify({'error': 'Invalid login code'}), 400
     except SessionPasswordNeededError:
-        delete_session(phone)
+        # delete_session(phone)
         return jsonify({'error': 'Two-factor authentication required'}), 403
     except Exception as e:
-        delete_session(phone)
+        # delete_session(phone)
         return jsonify({'error': f'Error: {e}'}), 500
     finally:
         await user_client.disconnect()    
