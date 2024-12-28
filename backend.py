@@ -315,7 +315,7 @@ async def verify_code():
 
     # Initialize the Telegram client
     print("Starting client...")
-    user_client = TelegramClient(session, api_id, api_hash)
+    user_client = TelegramClient('session', api_id, api_hash)
     try:
         await user_client.connect()
         await user_client.sign_in(phone, code, phone_code_hash=phone_code_hash)
