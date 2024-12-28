@@ -344,6 +344,7 @@ async def verify_code():
         return jsonify({'error': 'Two-factor authentication required'}), 403
     except Exception as e:
         delete_session_from_db(chat_id)
+        print(f'error: {e}')
         return jsonify({'error': f'Error: {e}'}), 500
     finally:
         await user_client.disconnect()
