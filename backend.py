@@ -284,8 +284,9 @@ async def request_code():
         await user_client.connect()
         sent_code = await user_client.send_code_request(phone)
 
-        # Save the session to the database after sending the code
-        save_session_to_db(chat_id, user_client.session.save())
+        # Save the session string to the database (save session as a string)
+        session_string = user_client.session.save()  # This is a string representation of the session
+        save_session_to_db(chat_id, session_string)
 
         return jsonify({'message': 'Login code sent', 'phone_code_hash': sent_code.phone_code_hash})
     except RPCError as e:
@@ -311,7 +312,7 @@ async def verify_code():
     if not phone or not code or not phone_code_hash or not chat_id:
         return jsonify({'error': 'Phone, code, phone_code_hash, and chat_id are required'}), 400
 
-    # Try to retrieve the session from the database
+    # Try to retrieve the session string from the database
     session_string = get_session_from_db(chat_id)
     session = StringSession(session_string) if session_string else StringSession()
 
@@ -328,8 +329,9 @@ async def verify_code():
             else:
                 return jsonify({'error': 'Two-factor authentication required'}), 403
 
-        # Save user session
-        save_session_to_db(chat_id, user_client.session.save())  # Make sure to save the session
+        # Save the session string to the database
+        session_string = user_client.session.save()  # This is a string representation of the session
+        save_session_to_db(chat_id, session_string)
         save_user_to_db(chat_id, phone, session)
 
         if not scraper:
