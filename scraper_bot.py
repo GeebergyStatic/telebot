@@ -196,7 +196,6 @@ async def join_channel(event):
             await user_client.disconnect()
 
 
-
 @bot.on(events.NewMessage(pattern=r"/monitor"))
 async def monitor_channels(event):
     chat_id = event.chat_id
@@ -231,6 +230,10 @@ async def monitor_channels(event):
             for channel_url in channels:
                 try:
                     async for message in user_client.iter_messages(channel_url, limit=100):
+                        if message.text:
+                            # Print the message text for debugging
+                            print(f"Channel: {channel_url}, Message: {message.text}")
+
                         contracts = re.findall(r"\b[0-9a-zA-Z]{40,}\b", message.text or "")
                         for contract in contracts:
                             if contract not in monitored_data:
@@ -252,6 +255,7 @@ async def monitor_channels(event):
 
     asyncio.create_task(monitor())
     await user_client.disconnect()
+
 
 @bot.on(events.NewMessage(pattern=r"/channels"))
 async def list_channels(event):
