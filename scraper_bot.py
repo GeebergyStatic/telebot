@@ -171,10 +171,10 @@ async def join_channel(event):
         await event.respond("Your session has expired. Please reauthenticate.")
         return
 
-    await event.respond("Please provide the channel URL to join.")
+    await event.respond("Please provide the channel URL to join.")  # Send a message before waiting for a response
     async with bot.conversation(chat_id) as conv:
         try:
-            message = await conv.get_response()
+            message = await conv.get_response()  # Now the conversation context is valid
             channel_url = message.text.strip()
             await user_client.join_channel(channel_url)
             save_channel_to_db(chat_id, channel_url)
