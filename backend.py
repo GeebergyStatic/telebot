@@ -345,7 +345,7 @@ async def verify_code():
         # Save the session string to the database
         session_string = user_client.session.save()  # This is a string representation of the session
         save_session_to_db(chat_id, session_string)
-        save_user_to_db(chat_id, phone, session)
+       # save_user_to_db(chat_id, phone, session)
 
         if not scraper:
             # Send a message after successful login
