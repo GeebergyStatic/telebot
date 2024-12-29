@@ -186,13 +186,13 @@ async def monitor_channels(event):
         return
 
     session_string = get_session_from_db(chat_id)
-if session_string:
-    session = StringSession(session_string)  # Use StringSession if it's stored as a string
-else:
-    await event.respond("Session not found. Please authenticate again.")
-    return
+    if session_string:
+        session = StringSession(session_string)  # Use StringSession if it's stored as a string
+    else:
+        await event.respond("Session not found. Please authenticate again.")
+        return
 
-user_client = TelegramClient(session, api_id, api_hash)  # Use the session object here
+    user_client = TelegramClient(session, api_id, api_hash)  # Use the session object here
     await user_client.connect()
 
     if not await user_client.is_user_authorized():
