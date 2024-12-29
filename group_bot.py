@@ -94,7 +94,7 @@ async def on_verify_button_click(event):
 @portal_bot_client.on(events.NewMessage(pattern='/start'))
 async def on_portal_access(event):
     try:
-        print("Processing /start command...")
+        await event.respond("Processing /start command...")
         channel_id = '-1002486862799'  # Replace with your actual channel username or ID
         image_url = 'https://firebasestorage.googleapis.com/v0/b/nexus-fx-investment-blog.appspot.com/o/bot_pics%2FScreenshot_20241224_133800_Telegram.jpg?alt=media&token=48ff61f7-8475-4145-a6f0-8d3861b20146'
 
