@@ -171,18 +171,29 @@ async def join_channel(event):
         await event.respond("Your session has expired. Please reauthenticate.")
         return
 
-    await event.respond("Please provide the channel URL to join.")  # Send a message before waiting for a response
+    # Send a message to initialize the conversation context
+    await event.respond("Please provide the channel URL to join.")
+    
+    # Use conversation context to wait for the user's response
     async with bot.conversation(chat_id) as conv:
         try:
-            message = await conv.get_response()  # Now the conversation context is valid
-            channel_url = message.text.strip()
-            await user_client.join_channel(channel_url)
-            save_channel_to_db(chat_id, channel_url)
-            await event.respond(f"Successfully joined {channel_url}.")
+            # Ensure the conversation context is properly initialized
+            message = await conv.wait_event(events.NewMessage())  # Wait for any new message
+
+            # Check if the message is the one we're expecting
+            if message.sender_id == chat_id:
+                channel_url = message.text.strip()
+                await user_client.join_channel(channel_url)
+                save_channel_to_db(chat_id, channel_url)
+                await event.respond(f"Successfully joined {channel_url}.")
+            else:
+                await event.respond("Invalid message. Please provide the correct channel URL.")
         except RPCError as e:
             await event.respond(f"Failed to join channel: {e}")
         finally:
             await user_client.disconnect()
+
+
 
 @bot.on(events.NewMessage(pattern=r"/monitor"))
 async def monitor_channels(event):
