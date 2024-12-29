@@ -119,9 +119,9 @@ async def on_start(event):
     chat_id = event.chat_id
 
     try:
-
         # Check if the user is authenticated
         if is_user_authenticated(chat_id):
+            await event.respond("Verifying Account. Please wait...")  # Added message
             await send_message_by_chat_id(chat_id)
             return
         # Download the image from the URL using aiohttp
