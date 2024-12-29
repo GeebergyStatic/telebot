@@ -157,8 +157,14 @@ async def join_channel(event):
         await event.respond("You need to authenticate first. Use /login to get started.")
         return
 
-    session_path = get_session_from_db(chat_id)
-    user_client = TelegramClient(session_path, api_id, api_hash)
+    session_string = get_session_from_db(chat_id)
+    if session_string:
+        session = StringSession(session_string)  # Use StringSession if it's stored as a string
+    else:
+        await event.respond("Session not found. Please authenticate again.")
+        return
+
+    user_client = TelegramClient(session, api_id, api_hash)  # Use the session object here
     await user_client.connect()
 
     if not await user_client.is_user_authorized():
