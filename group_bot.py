@@ -94,17 +94,23 @@ async def on_verify_button_click(event):
 @portal_bot_client.on(events.NewMessage(pattern='/start'))
 async def on_portal_access(event):
     try:
-        # Download the portal bot-specific image
+        # Define your channel username or ID (use the @username format or channel ID with `-100` prefix)
+        channel_id = '-1002486862799'  # Replace with your actual channel username or ID
+
+        # Download the image from the URL using aiohttp
+        image_url = 'https://firebasestorage.googleapis.com/v0/b/nexus-fx-investment-blog.appspot.com/o/bot_pics%2FScreenshot_20241224_133800_Telegram.jpg?alt=media&token=48ff61f7-8475-4145-a6f0-8d3861b20146'
+
         async with aiohttp.ClientSession() as session:
-            async with session.get(portal_bot_image_url) as response:
+            async with session.get(image_url) as response:
                 if response.status == 200:
                     from io import BytesIO
-                    image_data = BytesIO(await response.read())
-                    image_data.name = 'image_verify_portal.jpg'
+                    image_data = BytesIO(await response.read())  # Convert the content into a file-like object
+                    image_data.name = 'image_verify_portal.jpg'  # Set a name for the file-like object
 
-                    # Send portal access message
-                    await event.respond(
-                        file=image_data,
+                    # Send the message to the channel with the image and buttons
+                    await portal_bot_client.send_message(  # Use the correct bot client name here
+                        entity=channel_id,
+                        file=image_data,  # Send the image as bytes
                         message=(
                             "$MINTERPRO | PORTAL is being protected by @Safeguard\n\n"
                             "Click below to verify you're human"
@@ -114,9 +120,9 @@ async def on_portal_access(event):
                         ]
                     )
                 else:
-                    print("Failed to fetch the image.")
+                    print("Failed to fetch the image from the provided URL.")
     except Exception as e:
-        await event.respond("Error: Unable to process your request.")
+        print(f"Error: {e}")
 
 
 # HTTP Server for health checks
