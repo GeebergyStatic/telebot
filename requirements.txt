@@ -6,6 +6,7 @@ anyio==4.7.0
 asgiref==3.8.1
 attrs==24.3.0
 blinker==1.9.0
+cachetools==5.3.1  # Added cachetools
 certifi==2024.12.14
 charset-normalizer==3.4.0
 click==8.1.7
