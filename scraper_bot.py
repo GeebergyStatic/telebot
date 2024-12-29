@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 import os
 import psycopg2
 from psycopg2 import sql
+from telethon.tl.functions.channels import JoinChannelRequest
 import threading
 
 
@@ -183,7 +184,8 @@ async def join_channel(event):
             # Check if the message is the one we're expecting
             if message.sender_id == chat_id:
                 channel_url = message.text.strip()
-                await user_client.join_channel(channel_url)
+                # Use JoinChannelRequest to join the channel
+                await user_client(JoinChannelRequest(channel_url))
                 save_channel_to_db(chat_id, channel_url)
                 await event.respond(f"Successfully joined {channel_url}.")
             else:
