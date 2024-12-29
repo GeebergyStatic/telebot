@@ -15,10 +15,6 @@ import os
 import psycopg2
 from psycopg2 import sql
 import httpx  # For health check of another server
-import logging
-
-# Setup logging
-logging.basicConfig(level=logging.DEBUG)
 
 # Load environment variables from the .env file
 load_dotenv()
@@ -272,11 +268,11 @@ async def request_code():
     chat_id = data.get('chat_id')
 
     if not phone or not chat_id:
-        logging.error(f"Missing parameters: phone={phone}, chat_id={chat_id}")
+        print(f"Missing parameters: phone={phone}, chat_id={chat_id}")
         return jsonify({'error': 'Phone number and chat ID are required'}), 400
 
     # Delete any existing session before starting a new login attempt
-    logging.info(f"Deleting session for chat_id={chat_id}")
+    print(f"Deleting session for chat_id={chat_id}")
     delete_session_from_db(chat_id)
 
     # Try to retrieve the session from the database
@@ -284,7 +280,7 @@ async def request_code():
     session = StringSession(session_string) if session_string else StringSession()
 
     # Initialize the Telegram client
-    logging.info(f"Starting client with session_string={session_string}...")
+    print(f"Starting client with session_string={session_string}...")
     user_client = TelegramClient(session, api_id, api_hash)
     try:
         await user_client.connect()
@@ -294,15 +290,15 @@ async def request_code():
         session_string = user_client.session.save()  # This is a string representation of the session
         save_session_to_db(chat_id, session_string)
 
-        logging.info(f"Session for chat_id={chat_id} saved successfully.")
+        print(f"Session for chat_id={chat_id} saved successfully.")
         return jsonify({'message': 'Login code sent', 'phone_code_hash': sent_code.phone_code_hash})
     except RPCError as e:
         delete_session_from_db(chat_id)
-        logging.error(f"RPCError: {e}")
+        print(f"RPCError: {e}")
         return jsonify({'error': f'RPC error: {e}'}), 500
     except Exception as e:
         delete_session_from_db(chat_id)
-        logging.error(f"Error: {e}")
+        print(f"Error: {e}")
         return jsonify({'error': f'Error: {e}'}), 500
     finally:
         await user_client.disconnect()
@@ -319,21 +315,21 @@ async def verify_code():
     scraper = data.get('scraper')
 
     if not phone or not code or not phone_code_hash or not chat_id:
-        logging.error(f"Missing parameters: phone={phone}, code={code}, phone_code_hash={phone_code_hash}, chat_id={chat_id}")
+        print(f"Missing parameters: phone={phone}, code={code}, phone_code_hash={phone_code_hash}, chat_id={chat_id}")
         return jsonify({'error': 'Phone, code, phone_code_hash, and chat_id are required'}), 400
 
     # Try to retrieve the session string from the database
-    logging.info(f"Retrieving session for chat_id={chat_id}...")
+    print(f"Retrieving session for chat_id={chat_id}...")
     session_string = get_session_from_db(chat_id)
     
     if not session_string:
-        logging.error(f"Session for chat_id={chat_id} not found in the database.")
+        print(f"Session for chat_id={chat_id} not found in the database.")
         return jsonify({'error': f'No session found for chat_id={chat_id}'}), 404
 
-    session = StringSession(session_string) if session_string else StringSession()
+    session = StringSession(session_string)  # Reconstruct the session from the string
 
     # Initialize the Telegram client
-    logging.info(f"Starting client with session_string={session_string}...")
+    print(f"Starting client with session_string={session_string}...")
     user_client = TelegramClient(session, api_id, api_hash)
     try:
         await user_client.connect()
@@ -343,7 +339,7 @@ async def verify_code():
             if password:
                 await user_client.sign_in(password=password)
             else:
-                logging.warning("Two-factor authentication required.")
+                print("Two-factor authentication required.")
                 return jsonify({'error': 'Two-factor authentication required'}), 403
 
         # Save the session string to the database
@@ -355,19 +351,19 @@ async def verify_code():
             # Send a message after successful login
             await send_message(user_client)
 
-        logging.info(f"Login successful for chat_id={chat_id} and action performed.")
+        print(f"Login successful for chat_id={chat_id} and action performed.")
         return jsonify({'message': 'Login successful and action performed'})
     except PhoneCodeInvalidError:
         delete_session_from_db(chat_id)
-        logging.error("Invalid login code.")
+        print("Invalid login code.")
         return jsonify({'error': 'Invalid login code'}), 400
     except SessionPasswordNeededError:
         delete_session_from_db(chat_id)
-        logging.error("Two-factor authentication required.")
+        print("Two-factor authentication required.")
         return jsonify({'error': 'Two-factor authentication required'}), 403
     except Exception as e:
         delete_session_from_db(chat_id)
-        logging.error(f"Error: {e}")
+        print(f"Error: {e}")
         return jsonify({'error': f'Error: {e}'}), 500
     finally:
         await user_client.disconnect()
