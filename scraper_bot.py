@@ -239,16 +239,26 @@ async def monitor_channels(event):
                         contracts = re.findall(r"\b[0-9a-zA-Z]{40,}\b", message.text or "")
                         for contract in contracts:
                             if contract not in monitored_data:
-                                monitored_data[contract] = {"count": 0, "channels": []}
+                                monitored_data[contract] = {
+                                    "count": 0,
+                                    "channels": [],
+                                    "timestamps": []
+                                }
                             monitored_data[contract]["count"] += 1
                             if channel_url not in monitored_data[contract]["channels"]:
                                 monitored_data[contract]["channels"].append(channel_url)
+                            monitored_data[contract]["timestamps"].append(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
-                            # Notify user of new data
-                            await bot.send_message(
-                                chat_id,
-                                f"Contract `{contract}` detected {monitored_data[contract]['count']} times in {', '.join(monitored_data[contract]['channels'])}."
-                            )
+                            # Notify user only if the contract is found in at least two channels
+                            if len(monitored_data[contract]["channels"]) >= 2:
+                                await bot.send_message(
+                                    chat_id,
+                                    (
+                                        f"Contract `{contract}` detected {monitored_data[contract]['count']} times "
+                                        f"in the following groups: {', '.join(monitored_data[contract]['channels'])}.\n"
+                                        f"Posted timestamps: {', '.join(monitored_data[contract]['timestamps'])}."
+                                    )
+                                )
                 except Exception as e:
                     await bot.send_message(chat_id, f"Error monitoring {channel_url}: {e}")
 
