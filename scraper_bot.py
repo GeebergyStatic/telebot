@@ -240,9 +240,7 @@ async def monitor_channels(event):
                 try:
                     async for message in user_client.iter_messages(channel_url, limit=100):
                         if message.text:
-                            # Print the message text for debugging
-                            # print(f"Channel: {channel_url}, Message: {message.text}")
-
+                            # Extract contract addresses from the message
                             contracts = re.findall(r"\b[0-9a-zA-Z]{40,}\b", message.text or "")
                             for contract in contracts:
                                 # Only count the contract if it's not already seen in this channel
@@ -258,7 +256,7 @@ async def monitor_channels(event):
                                     monitored_data[contract]["count"] += 1
                                     monitored_data[contract]["details"].append({
                                         "channel": channel_url,
-                                        "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                                        "timestamp": message.date.strftime('%Y-%m-%d %H:%M:%S')  # Use actual message timestamp
                                     })
 
                                     # Notify user only if the contract is found in at least two channels
