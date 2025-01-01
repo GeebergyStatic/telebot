@@ -252,26 +252,27 @@ async def monitor_channels(event):
                                     if contract not in monitored_data:
                                         monitored_data[contract] = {
                                             "count": 0,
-                                            "channels": [],
-                                            "timestamps": []
+                                            "details": []  # Store group and timestamp together
                                         }
 
                                     monitored_data[contract]["count"] += 1
-                                    monitored_data[contract]["timestamps"].append(
-                                        datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                                    )
-
-                                    if channel_url not in monitored_data[contract]["channels"]:
-                                        monitored_data[contract]["channels"].append(channel_url)
+                                    monitored_data[contract]["details"].append({
+                                        "channel": channel_url,
+                                        "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                                    })
 
                                     # Notify user only if the contract is found in at least two channels
-                                    if len(monitored_data[contract]["channels"]) >= 2:
+                                    channels_with_contract = {d["channel"] for d in monitored_data[contract]["details"]}
+                                    if len(channels_with_contract) >= 2:
+                                        details_text = "\n".join(
+                                            f"- {detail['channel']} at {detail['timestamp']}"
+                                            for detail in monitored_data[contract]["details"]
+                                        )
                                         await bot.send_message(
                                             chat_id,
                                             (
                                                 f"Contract `{contract}` detected {monitored_data[contract]['count']} times "
-                                                f"in the following groups: {', '.join(monitored_data[contract]['channels'])}.\n"
-                                                f"Posted timestamps: {', '.join(monitored_data[contract]['timestamps'])}."
+                                                f"in the following groups:\n{details_text}"
                                             )
                                         )
                 except Exception as e:
