@@ -1,9 +1,11 @@
 import sqlite3
 import re
 from datetime import datetime
+import pytz
 from flask import Flask, request, jsonify
 from telethon.sessions import StringSession
 from telethon import TelegramClient, events
+from telethon.tl.custom import Button
 from telethon.errors import RPCError
 import asyncio
 from dotenv import load_dotenv
@@ -69,6 +71,14 @@ CREATE TABLE IF NOT EXISTS channels (
 )
 """)
 
+# create timezone table
+db_cursor.execute("""
+CREATE TABLE IF NOT EXISTS user_timezones (
+    chat_id BIGINT PRIMARY KEY,
+    timezone TEXT NOT NULL
+)
+""")
+
 
 # Helper functions
 def save_scraper_bot_session(session_string):
@@ -110,6 +120,50 @@ def get_channels_for_user(chat_id):
     return [row[0] for row in db_cursor.fetchall()]
 
 
+# Database Functions
+def save_user_timezone(chat_id, timezone):
+    """
+    Save or update the user's timezone in the database.
+    """
+    query = """
+        INSERT INTO user_timezones (chat_id, timezone)
+        VALUES (%s, %s)
+        ON CONFLICT (chat_id) DO UPDATE
+        SET timezone = EXCLUDED.timezone;
+    """
+    try:
+        db_cursor.execute(query, (chat_id, timezone))
+        db_conn.commit()
+        print(f"Timezone '{timezone}' saved for chat_id {chat_id}.")
+    except Exception as e:
+        print(f"Error saving timezone for chat_id {chat_id}: {e}")
+
+def get_user_timezone(chat_id):
+    """
+    Retrieve the user's timezone from the database.
+    """
+    query = "SELECT timezone FROM user_timezones WHERE chat_id = %s;"
+    try:
+        db_cursor.execute(query, (chat_id,))
+        result = db_cursor.fetchone()
+        if result:
+            print(f"Timezone for chat_id {chat_id} is {result[0]}.")
+        return result[0] if result else None
+    except Exception as e:
+        print(f"Error retrieving timezone for chat_id {chat_id}: {e}")
+        return None
+
+def convert_to_user_timezone(utc_time, timezone):
+    """
+    Convert UTC time to the user's timezone.
+    """
+    try:
+        user_tz = pytz.timezone(timezone)
+        return utc_time.astimezone(user_tz)
+    except Exception as e:
+        print(f"Error converting time: {e}")
+        return utc_time  # Default to UTC if conversion fails
+
 
 # Helper Functions
 def get_session_from_db(chat_id):
@@ -146,6 +200,39 @@ def create_scraper_bot(api_id, api_hash, bot_token):
 bot = create_scraper_bot(api_id, api_hash, bot_token)
 
 # Telegram Bot Commands
+# set timezone
+# Bot Command: Set Timezone
+@bot.on(events.NewMessage(pattern=r"/settimezone"))
+async def set_timezone(event):
+    chat_id = event.chat_id
+
+    # List of timezones
+    timezones = pytz.all_timezones
+    # Split timezones into groups of 5 for better readability
+    timezone_buttons = [
+        [Button.text(timezones[i], resize=True)] for i in range(0, len(timezones), 5)
+    ]
+
+    # Send message with timezones as inline buttons
+    await bot.send_message(
+        chat_id,
+        "Please select your timezone:",
+        buttons=timezone_buttons
+    )
+
+# Handle the user's timezone selection
+@bot.on(events.CallbackQuery)
+async def handle_timezone_selection(event):
+    chat_id = event.chat_id
+    timezone = event.data.decode("utf-8")  # Get the selected timezone
+
+    # Validate if the timezone is valid
+    if timezone in pytz.all_timezones:
+        save_user_timezone(chat_id, timezone)
+        await event.answer(f"Your timezone has been set to {timezone}.", alert=True)
+    else:
+        await event.answer("Invalid timezone selected.", alert=True)
+# 
 @bot.on(events.NewMessage(pattern=r"/login"))
 async def send_login_link(event):
     chat_id = event.chat_id
@@ -200,6 +287,10 @@ async def join_channel(event):
 @bot.on(events.NewMessage(pattern=r"/monitor"))
 async def monitor_channels(event):
     chat_id = event.chat_id
+    user_timezone = get_user_timezone(chat_id)
+
+    # If a timezone is set, proceed with monitoring
+    user_timezone = user_timezone or "UTC"  # Default to UTC if no timezone is found
     if not is_user_authenticated(chat_id):
         await bot.send_message(chat_id, "You need to authenticate first. Use /login to get started.")
         return
@@ -253,10 +344,15 @@ async def monitor_channels(event):
                                             "details": []  # Store group and timestamp together
                                         }
 
+                                    # Convert the timestamp to the user's local time
+                                    local_time = convert_to_user_timezone(message.date, user_timezone)
+
+                                    # Format the local time in the desired format
+                                    local_time_str = local_time.strftime('%Y-%m-%d %H:%M:%S')
                                     monitored_data[contract]["count"] += 1
                                     monitored_data[contract]["details"].append({
                                         "channel": channel_url,
-                                        "timestamp": message.date.strftime('%Y-%m-%d %H:%M:%S')  # Use actual message timestamp
+                                        "timestamp": local_time_str  # Use actual message timestamp
                                     })
 
                                     # Notify user only if the contract is found in at least two channels
