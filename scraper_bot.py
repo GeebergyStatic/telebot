@@ -200,29 +200,31 @@ async def join_channel(event):
 async def monitor_channels(event):
     chat_id = event.chat_id
     if not is_user_authenticated(chat_id):
-        await event.respond("You need to authenticate first. Use /login to get started.")
+        await bot.send_message(chat_id, "You need to authenticate first. Use /login to get started.")
         return
 
     session_string = get_session_from_db(chat_id)
     if session_string:
-        session = StringSession(session_string)  # Use StringSession if it's stored as a string
+        session = StringSession(session_string)
     else:
-        await event.respond("Session not found. Please authenticate again.")
+        await bot.send_message(chat_id, "Session not found. Please authenticate again.")
         return
 
-    user_client = TelegramClient(session, api_id, api_hash)  # Use the session object here
+    user_client = TelegramClient(session, api_id, api_hash)
     await user_client.connect()
 
     if not await user_client.is_user_authorized():
-        await event.respond("Your session has expired. Please reauthenticate.")
+        await bot.send_message(chat_id, "Your session has expired. Please reauthenticate.")
+        await user_client.disconnect()
         return
 
     channels = get_channels_for_user(chat_id)
     if not channels:
-        await event.respond("No channels to monitor. Use /join to add channels first.")
+        await bot.send_message(chat_id, "No channels to monitor. Use /join to add channels first.")
+        await user_client.disconnect()
         return
 
-    await event.respond("Monitoring channels for contract addresses...")
+    await bot.send_message(chat_id, "Monitoring channels for contract addresses...")
     monitored_data = {}
 
     async def monitor():
@@ -242,19 +244,17 @@ async def monitor_channels(event):
                             if channel_url not in monitored_data[contract]["channels"]:
                                 monitored_data[contract]["channels"].append(channel_url)
 
-                    # Notify user if new data is found
-                    for contract, details in monitored_data.items():
-                        await bot.send_message(
-                            chat_id,
-                            f"Contract `{contract}` detected {details['count']} times in {', '.join(details['channels'])}."
-                        )
+                            # Notify user of new data
+                            await bot.send_message(
+                                chat_id,
+                                f"Contract `{contract}` detected {monitored_data[contract]['count']} times in {', '.join(monitored_data[contract]['channels'])}."
+                            )
                 except Exception as e:
                     await bot.send_message(chat_id, f"Error monitoring {channel_url}: {e}")
 
             await asyncio.sleep(10)  # Check every 10 seconds
 
     asyncio.create_task(monitor())
-    await user_client.disconnect()
 
 
 @bot.on(events.NewMessage(pattern=r"/channels"))
