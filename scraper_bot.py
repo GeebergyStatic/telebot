@@ -202,36 +202,44 @@ bot = create_scraper_bot(api_id, api_hash, bot_token)
 # Telegram Bot Commands
 # set timezone
 # Bot Command: Set Timezone
+def generate_timezone_buttons():
+    """Generates a complete list of timezones as inline buttons."""
+    timezone_list = pytz.all_timezones
+    buttons = [Button.inline(tz, data=f"set_tz:{tz}") for tz in timezone_list]
+    return [buttons[i:i + 3] for i in range(0, len(buttons), 3)]  # Group into rows of 3
+
 @bot.on(events.NewMessage(pattern=r"/settimezone"))
 async def set_timezone(event):
     chat_id = event.chat_id
+    current_timezone = get_user_timezone(chat_id)
 
-    # List of timezones
-    timezones = pytz.all_timezones
-    # Split timezones into groups of 5 for better readability
-    timezone_buttons = [
-        [Button.text(timezones[i], resize=True)] for i in range(0, len(timezones), 5)
-    ]
+    # Display the current timezone if set
+    if current_timezone:
+        current_tz_message = f"Your current timezone is: **{current_timezone}**"
+    else:
+        current_tz_message = "You haven't set a timezone yet."
 
-    # Send message with timezones as inline buttons
+    # Inform the user and provide the timezone buttons
     await bot.send_message(
         chat_id,
-        "Please select your timezone:",
-        buttons=timezone_buttons
+        f"{current_tz_message}\n\nPlease select a timezone from the list below:",
+        buttons=generate_timezone_buttons()
     )
 
-# Handle the user's timezone selection
-@bot.on(events.CallbackQuery)
-async def handle_timezone_selection(event):
-    chat_id = event.chat_id
-    timezone = event.data.decode("utf-8")  # Get the selected timezone
 
-    # Validate if the timezone is valid
-    if timezone in pytz.all_timezones:
-        save_user_timezone(chat_id, timezone)
-        await event.answer(f"Your timezone has been set to {timezone}.", alert=True)
-    else:
-        await event.answer("Invalid timezone selected.", alert=True)
+# Handle the user's timezone selection
+@bot.on(events.CallbackQuery(pattern=r"set_tz:(.+)"))
+async def save_timezone(event):
+    chat_id = event.chat_id
+    new_timezone = event.data.decode().split(":")[1]
+
+    # Save or update the user's timezone in the database
+    save_user_timezone(chat_id, new_timezone)  # Update the database function as needed
+
+    await event.respond(
+        f"Your timezone has been updated to: **{new_timezone}**",
+        alert=True  # Notify the user interactively
+    )
 # 
 @bot.on(events.NewMessage(pattern=r"/login"))
 async def send_login_link(event):
