@@ -202,10 +202,22 @@ bot = create_scraper_bot(api_id, api_hash, bot_token)
 # Telegram Bot Commands
 # set timezone
 # Bot Command: Set Timezone
-def generate_timezone_buttons():
-    """Generates a complete list of timezones as inline buttons."""
-    timezone_list = pytz.all_timezones
-    buttons = [Button.inline(tz, data=f"set_tz:{tz}") for tz in timezone_list]
+# A comprehensive list of timezones categorized by region
+timezones = [
+    {"Africa": ["Africa/Lagos", "Africa/Abidjan", "Africa/Nairobi", "Africa/Johannesburg"]},
+    {"Europe": ["Europe/London", "Europe/Paris", "Europe/Berlin", "Europe/Madrid"]},
+    {"America": ["America/New_York", "America/Los_Angeles", "America/Chicago", "America/Toronto"]},
+    {"Asia": ["Asia/Kolkata", "Asia/Shanghai", "Asia/Tokyo", "Asia/Dubai"]},
+    {"Australia": ["Australia/Sydney", "Australia/Melbourne", "Australia/Perth"]},
+]
+
+def get_timezone_buttons():
+    """Generates buttons for timezones, grouped by region."""
+    buttons = []
+    for region in timezones:
+        for continent, tz_list in region.items():
+            for tz in tz_list:
+                buttons.append(Button.inline(tz, data=f"set_tz:{tz}"))
     return [buttons[i:i + 3] for i in range(0, len(buttons), 3)]  # Group into rows of 3
 
 @bot.on(events.NewMessage(pattern=r"/settimezone"))
@@ -223,11 +235,9 @@ async def set_timezone(event):
     await bot.send_message(
         chat_id,
         f"{current_tz_message}\n\nPlease select a timezone from the list below:",
-        buttons=generate_timezone_buttons()
+        buttons=get_timezone_buttons()
     )
 
-
-# Handle the user's timezone selection
 @bot.on(events.CallbackQuery(pattern=r"set_tz:(.+)"))
 async def save_timezone(event):
     chat_id = event.chat_id
