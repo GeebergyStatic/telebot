@@ -244,12 +244,40 @@ async def save_timezone(event):
     new_timezone = event.data.decode().split(":")[1]
 
     # Save or update the user's timezone in the database
-    save_user_timezone(chat_id, new_timezone)  # Update the database function as needed
+    save_user_timezone(chat_id, new_timezone)  # This should update the database function
 
-    await event.respond(
-        f"Your timezone has been updated to: **{new_timezone}**",
-        alert=True  # Notify the user interactively
+    # Notify the user in the chat
+    await bot.send_message(
+        chat_id,
+        f"✅ Your timezone has been updated to: **{new_timezone}**.\n"
+        "You can run `/settimezone` again to verify or change it if needed."
     )
+
+    # Respond to the button interaction (required to dismiss the loading animation)
+    await event.answer("Timezone updated successfully!", alert=False)
+
+# 
+# defining start command
+@bot.on(events.NewMessage(pattern=r"/start"))
+async def set_start_command(event):
+    chat_id = event.chat_id
+
+    help_message = (
+        "Here is a list of commands available to you:\n\n"
+        "/start - Start the bot and see the available commands\n"
+        "/login - Autheticate your account\n"
+        "/join - Add channel to list\n"
+        "/monitor - Monitor channels for contract addresses and get notifications\n"
+        "/settimezone - Set your preferred timezone\n"
+        "/channels - To view added channels\n"
+        "Feel free to use any of these commands to interact with the bot."
+    )
+    # Inform the user and provide the timezone buttons
+    await bot.send_message(
+        chat_id,
+        f"{help_message}",
+    )
+
 # 
 @bot.on(events.NewMessage(pattern=r"/login"))
 async def send_login_link(event):
