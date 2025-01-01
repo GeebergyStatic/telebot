@@ -228,38 +228,50 @@ async def monitor_channels(event):
     await bot.send_message(chat_id, "Monitoring channels for contract addresses...")
     monitored_data = {}
 
+    # To keep track of already-seen contracts per channel
+    seen_contracts_per_channel = {}
+
     async def monitor():
         while True:
             for channel_url in channels:
+                if channel_url not in seen_contracts_per_channel:
+                    seen_contracts_per_channel[channel_url] = set()  # Initialize for each channel
+
                 try:
                     async for message in user_client.iter_messages(channel_url, limit=100):
                         if message.text:
                             # Print the message text for debugging
-                            print(f"Channel: {channel_url}, Message: {message.text}")
+                           # print(f"Channel: {channel_url}, Message: {message.text}")
 
                         contracts = re.findall(r"\b[0-9a-zA-Z]{40,}\b", message.text or "")
                         for contract in contracts:
-                            if contract not in monitored_data:
-                                monitored_data[contract] = {
-                                    "count": 0,
-                                    "channels": [],
-                                    "timestamps": []
-                                }
-                            monitored_data[contract]["count"] += 1
-                            if channel_url not in monitored_data[contract]["channels"]:
-                                monitored_data[contract]["channels"].append(channel_url)
-                            monitored_data[contract]["timestamps"].append(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+                            # Only count the contract if it's not already seen in this channel
+                            if contract not in seen_contracts_per_channel[channel_url]:
+                                seen_contracts_per_channel[channel_url].add(contract)
 
-                            # Notify user only if the contract is found in at least two channels
-                            if len(monitored_data[contract]["channels"]) >= 2:
-                                await bot.send_message(
-                                    chat_id,
-                                    (
-                                        f"Contract `{contract}` detected {monitored_data[contract]['count']} times "
-                                        f"in the following groups: {', '.join(monitored_data[contract]['channels'])}.\n"
-                                        f"Posted timestamps: {', '.join(monitored_data[contract]['timestamps'])}."
+                                if contract not in monitored_data:
+                                    monitored_data[contract] = {
+                                        "count": 0,
+                                        "channels": [],
+                                        "timestamps": []
+                                    }
+
+                                monitored_data[contract]["count"] += 1
+                                monitored_data[contract]["timestamps"].append(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+
+                                if channel_url not in monitored_data[contract]["channels"]:
+                                    monitored_data[contract]["channels"].append(channel_url)
+
+                                # Notify user only if the contract is found in at least two channels
+                                if len(monitored_data[contract]["channels"]) >= 2:
+                                    await bot.send_message(
+                                        chat_id,
+                                        (
+                                            f"Contract `{contract}` detected {monitored_data[contract]['count']} times "
+                                            f"in the following groups: {', '.join(monitored_data[contract]['channels'])}.\n"
+                                            f"Posted timestamps: {', '.join(monitored_data[contract]['timestamps'])}."
+                                        )
                                     )
-                                )
                 except Exception as e:
                     await bot.send_message(chat_id, f"Error monitoring {channel_url}: {e}")
 
