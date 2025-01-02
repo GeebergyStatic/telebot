@@ -350,51 +350,60 @@ async def join_channel(event):
 
 
 
+def get_channel_buttons(chat_id):
+    """
+    Generate buttons for the channels the user has joined.
+    """
+    channels = get_channels_for_user(chat_id)  # Retrieve channels from the database
+    buttons = [
+        [Button.inline(channel_url, data=f"remove_channel:{channel_url}")]
+        for channel_url in channels
+    ]
+    return buttons
+
+
 @bot.on(events.NewMessage(pattern=r"/remove"))
-async def remove_channel(event):
+async def display_channels(event):
     chat_id = event.chat_id
 
-    if not is_user_authenticated(chat_id):
-        await event.respond("You need to authenticate first. Use /login to get started.")
-        return
+    # Get buttons for the user's channels
+    buttons = get_channel_buttons(chat_id)
 
-    channels = get_channels_for_user(chat_id)  # Retrieve the user's channels from the database
-    if not channels:
-        await event.respond("You have no channels to remove.")
-        return
+    if buttons:
+        await bot.send_message(
+            chat_id,
+            "Select a channel to remove:",
+            buttons=buttons
+        )
+    else:
+        await bot.send_message(
+            chat_id,
+            "You don't have any channels to remove."
+        )
 
-    # Generate inline buttons for each channel
-    buttons = [
-        Button.inline(channel_url, data=f"remove_channel:{channel_url}") for channel_url in channels
-    ]
-
-    # Group buttons into rows of 2 for better UI
-    button_rows = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
-
-    # Prompt user to select a channel to remove
-    await event.respond(
-        "Select a channel to remove:",
-        buttons=button_rows
-    )
 
 @bot.on(events.CallbackQuery(pattern=r"remove_channel:(.+)"))
 async def confirm_remove_channel(event):
     chat_id = event.chat_id
-    channel_url = event.data.decode().split(":")[1]
+    channel_url = event.data.decode().split(":", 1)[1]  # Use `split(":", 1)` to ensure proper extraction
 
-    if remove_channel_from_db(chat_id, channel_url):
-        # Send a new message confirming the removal
-        await bot.send_message(
-            chat_id,
-            f"✅ Successfully removed the channel: {channel_url}."
-        )
-        # Optionally update the original message
-        await event.edit(f"The channel {channel_url} has been removed.")
+    # Verify extracted channel URL
+    if channel_url.startswith("http"):
+        if remove_channel_from_db(chat_id, channel_url):
+            await bot.send_message(
+                chat_id,
+                f"✅ Successfully removed the channel: {channel_url}."
+            )
+            await event.edit(f"The channel {channel_url} has been removed.")
+        else:
+            await bot.send_message(
+                chat_id,
+                f"⚠️ Unable to remove the channel: {channel_url}. Please try again."
+            )
     else:
-        # Send an error message
         await bot.send_message(
             chat_id,
-            f"⚠️ Unable to remove the channel: {channel_url}. Please try again."
+            "⚠️ Invalid channel URL received. Please try again."
         )
 
 
