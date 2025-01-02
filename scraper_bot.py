@@ -383,14 +383,18 @@ async def confirm_remove_channel(event):
     channel_url = event.data.decode().split(":")[1]
 
     if remove_channel_from_db(chat_id, channel_url):
-        await event.respond(
-            f"Successfully removed the channel: {channel_url}.",
-            alert=True  # Notify the user with an interactive alert
+        # Send a new message confirming the removal
+        await bot.send_message(
+            chat_id,
+            f"✅ Successfully removed the channel: {channel_url}."
         )
+        # Optionally update the original message
+        await event.edit(f"The channel {channel_url} has been removed.")
     else:
-        await event.respond(
-            f"⚠️ Unable to remove the channel: {channel_url}. Please try again.",
-            alert=True
+        # Send an error message
+        await bot.send_message(
+            chat_id,
+            f"⚠️ Unable to remove the channel: {channel_url}. Please try again."
         )
 
 
