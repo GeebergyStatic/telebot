@@ -111,6 +111,24 @@ def save_channel_to_db(chat_id, channel_url):
     """
     db_cursor.execute(query, (chat_id, channel_url))
 
+
+def remove_channel_from_db(chat_id, channel_url):
+    """
+    Remove a channel from the 'channels' table for a specific chat_id.
+    """
+    query = """
+        DELETE FROM channels
+        WHERE chat_id = %s AND channel_url = %s;
+    """
+    try:
+        db_cursor.execute(query, (chat_id, channel_url))
+        db_connection.commit()  # Ensure changes are saved to the database
+        return True
+    except Exception as e:
+        print(f"Error removing channel from DB: {e}")
+        return False
+
+
 def get_channels_for_user(chat_id):
     """
     Retrieve all channel URLs associated with a specific chat_id.
@@ -328,6 +346,49 @@ async def join_channel(event):
             await event.respond(f"Failed to join channel: {e}")
         finally:
             await user_client.disconnect()
+
+
+
+@bot.on(events.NewMessage(pattern=r"/remove"))
+async def remove_channel(event):
+    chat_id = event.chat_id
+
+    # Check if the user is authenticated
+    if not is_user_authenticated(chat_id):
+        await event.respond("You need to authenticate first. Use /login to get started.")
+        return
+
+    # Fetch the user's channels from the database
+    user_channels = get_channels_for_user(chat_id)
+    if not user_channels:
+        await event.respond("You haven't joined any channels yet. Use /join to add one.")
+        return
+
+    # List the channels for the user to choose from
+    buttons = [
+        [Button.inline(channel, data=f"remove_channel:{channel}")]
+        for channel in user_channels
+    ]
+
+    await event.respond(
+        "Select the channel you want to remove:",
+        buttons=buttons
+    )
+
+@bot.on(events.CallbackQuery(pattern=r"remove_channel:(.+)"))
+async def confirm_remove_channel(event):
+    chat_id = event.chat_id
+    channel_url = event.data.decode().split(":")[1]
+
+    # Remove the channel from the database
+    if remove_channel_from_db(chat_id, channel_url):
+        await bot.send_message(chat_id, f"✅ Successfully removed the channel: {channel_url}.")
+    else:
+        await bot.send_message(chat_id, f"⚠️ Unable to remove the channel: {channel_url}.")
+
+    # Respond to the button interaction (dismiss loading animation)
+    await event.answer("Channel removed successfully.", alert=False)
+
 
 
 @bot.on(events.NewMessage(pattern=r"/monitor"))
