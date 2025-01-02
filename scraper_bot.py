@@ -358,25 +358,40 @@ async def remove_channel(event):
         await event.respond("You need to authenticate first. Use /login to get started.")
         return
 
-    await event.respond("Please provide the channel URL to remove.")
+    channels = get_channels_for_user(chat_id)  # Retrieve the user's channels from the database
+    if not channels:
+        await event.respond("You have no channels to remove.")
+        return
 
-    async with bot.conversation(chat_id) as conv:
-        try:
-            message = await conv.wait_event(events.NewMessage(from_user=chat_id))
-            channel_url = message.text.strip()
+    # Generate inline buttons for each channel
+    buttons = [
+        Button.inline(channel_url, data=f"remove_channel:{channel_url}") for channel_url in channels
+    ]
 
-            # Optional: Validate channel_url format
-            if not channel_url.startswith("https://t.me/") and not channel_url.startswith("t.me/"):
-                await event.respond("Invalid channel URL. Please provide a valid Telegram channel link.")
-                return
+    # Group buttons into rows of 2 for better UI
+    button_rows = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
 
-            # Attempt to remove the channel
-            if remove_channel_from_db(chat_id, channel_url):
-                await event.respond(f"Successfully removed the channel: {channel_url}.")
-            else:
-                await event.respond(f"⚠️ Unable to remove the channel: {channel_url}. Please try again.")
-        except Exception as e:
-            await event.respond(f"An error occurred: {e}")
+    # Prompt user to select a channel to remove
+    await event.respond(
+        "Select a channel to remove:",
+        buttons=button_rows
+    )
+
+@bot.on(events.CallbackQuery(pattern=r"remove_channel:(.+)"))
+async def confirm_remove_channel(event):
+    chat_id = event.chat_id
+    channel_url = event.data.decode().split(":")[1]
+
+    if remove_channel_from_db(chat_id, channel_url):
+        await event.respond(
+            f"Successfully removed the channel: {channel_url}.",
+            alert=True  # Notify the user with an interactive alert
+        )
+    else:
+        await event.respond(
+            f"⚠️ Unable to remove the channel: {channel_url}. Please try again.",
+            alert=True
+        )
 
 
 
