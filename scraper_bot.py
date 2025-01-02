@@ -114,19 +114,17 @@ def save_channel_to_db(chat_id, channel_url):
 
 def remove_channel_from_db(chat_id, channel_url):
     """
-    Remove a channel from the 'channels' table for a specific chat_id.
+    Remove a channel from the 'channels' table.
     """
     query = """
         DELETE FROM channels
-        WHERE chat_id = %s AND channel_url = %s;
+        WHERE chat_id = %s AND channel_url = %s
     """
     try:
-        print(f"Removing channel: {channel_url}")  # Debugging log
         db_cursor.execute(query, (chat_id, channel_url))
-        db_connection.commit()  # Ensure changes are saved to the database
-        return True
+        return db_cursor.rowcount > 0  # Returns True if a row was deleted
     except Exception as e:
-        print(f"Error removing channel from DB: {e}")  # Debugging log
+        print(f"DEBUG: Error removing channel: {e}")
         return False
 
 
@@ -385,25 +383,20 @@ async def display_channels(event):
 @bot.on(events.CallbackQuery(pattern=r"remove_channel:(.+)"))
 async def confirm_remove_channel(event):
     chat_id = event.chat_id
-    channel_url = event.data.decode().split(":", 1)[1]  # Use `split(":", 1)` to ensure proper extraction
+    channel_url = event.data.decode().split(":", 1)[1]
 
-    # Verify extracted channel URL
-    if channel_url.startswith("http"):
-        if remove_channel_from_db(chat_id, channel_url):
-            await bot.send_message(
-                chat_id,
-                f"✅ Successfully removed the channel: {channel_url}."
-            )
-            await event.edit(f"The channel {channel_url} has been removed.")
-        else:
-            await bot.send_message(
-                chat_id,
-                f"⚠️ Unable to remove the channel: {channel_url}. Please try again."
-            )
+    print(f"DEBUG: Received channel_url: {channel_url}")  # Debugging line
+
+    if remove_channel_from_db(chat_id, channel_url):
+        await bot.send_message(
+            chat_id,
+            f"✅ Successfully removed the channel: {channel_url}."
+        )
+        await event.edit(f"The channel {channel_url} has been removed.")
     else:
         await bot.send_message(
             chat_id,
-            "⚠️ Invalid channel URL received. Please try again."
+            f"⚠️ Unable to remove the channel: {channel_url}. Please check and try again."
         )
 
 
