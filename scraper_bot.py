@@ -282,18 +282,15 @@ async def set_start_command(event):
     help_message = (
         "Here is a list of commands available to you:\n\n"
         "/start - Start the bot and see the available commands\n"
-        "/login - Autheticate your account\n"
+        "/login - Authenticate your account\n"
         "/join - Add channel to list\n"
         "/monitor - Monitor channels for contract addresses and get notifications\n"
         "/settimezone - Set your preferred timezone\n"
         "/channels - To view added channels\n"
+        "/remove - Remove a channel from the list\n"  # Added the command here
         "Feel free to use any of these commands to interact with the bot."
     )
-    # Inform the user and provide the timezone buttons
-    await bot.send_message(
-        chat_id,
-        f"{help_message}",
-    )
+    await bot.send_message(chat_id, help_message)
 
 # 
 @bot.on(events.NewMessage(pattern=r"/login"))
@@ -453,41 +450,43 @@ async def monitor_channels(event):
                             # Extract contract addresses from the message
                             contracts = re.findall(r"\b[0-9a-zA-Z]{40,}\b", message.text or "")
                             for contract in contracts:
-                                # Only count the contract if it's not already seen in this channel
-                                if contract not in seen_contracts_per_channel[channel_url]:
-                                    seen_contracts_per_channel[channel_url].add(contract)
+                                # Skip if the contract is already seen in this channel
+                                if contract in seen_contracts_per_channel[channel_url]:
+                                    continue
 
-                                    if contract not in monitored_data:
-                                        monitored_data[contract] = {
-                                            "count": 0,
-                                            "details": []  # Store group and timestamp together
-                                        }
+                                seen_contracts_per_channel[channel_url].add(contract)  # Mark as seen
 
-                                    # Convert the timestamp to the user's local time
-                                    local_time = convert_to_user_timezone(message.date, user_timezone)
+                                if contract not in monitored_data:
+                                    monitored_data[contract] = {
+                                        "count": 0,
+                                        "details": []  # Store group and timestamp together
+                                    }
 
-                                    # Format the local time in the desired format
-                                    local_time_str = local_time.strftime('%Y-%m-%d %H:%M:%S')
-                                    monitored_data[contract]["count"] += 1
-                                    monitored_data[contract]["details"].append({
-                                        "channel": channel_url,
-                                        "timestamp": local_time_str  # Use actual message timestamp
-                                    })
+                                # Convert the timestamp to the user's local time
+                                local_time = convert_to_user_timezone(message.date, user_timezone)
 
-                                    # Notify user only if the contract is found in at least two channels
-                                    channels_with_contract = {d["channel"] for d in monitored_data[contract]["details"]}
-                                    if len(channels_with_contract) >= 2:
-                                        details_text = "\n".join(
-                                            f"- {detail['channel']} at {detail['timestamp']}"
-                                            for detail in monitored_data[contract]["details"]
+                                # Format the local time in the desired format
+                                local_time_str = local_time.strftime('%Y-%m-%d %H:%M:%S')
+                                monitored_data[contract]["count"] += 1
+                                monitored_data[contract]["details"].append({
+                                    "channel": channel_url,
+                                    "timestamp": local_time_str  # Use actual message timestamp
+                                })
+
+                                # Notify user only if the contract is found in at least two channels
+                                channels_with_contract = {d["channel"] for d in monitored_data[contract]["details"]}
+                                if len(channels_with_contract) >= 2:
+                                    details_text = "\n".join(
+                                        f"- {detail['channel']} at {detail['timestamp']}"
+                                        for detail in monitored_data[contract]["details"]
+                                    )
+                                    await bot.send_message(
+                                        chat_id,
+                                        (
+                                            f"Contract `{contract}` detected {monitored_data[contract]['count']} times "
+                                            f"in the following groups:\n{details_text}"
                                         )
-                                        await bot.send_message(
-                                            chat_id,
-                                            (
-                                                f"Contract `{contract}` detected {monitored_data[contract]['count']} times "
-                                                f"in the following groups:\n{details_text}"
-                                            )
-                                        )
+                                    )
                 except Exception as e:
                     await bot.send_message(chat_id, f"Error monitoring {channel_url}: {e}")
 
