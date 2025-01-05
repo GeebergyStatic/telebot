@@ -473,7 +473,7 @@ async def monitor_channels(event):
                 try:
                     async for message in user_client.iter_messages(channel_url, limit=100):
                         if message.text:
-                            # Extract contract addresses from the message
+                            # Extract sequences of at least 40 alphanumeric characters
                             contracts = re.findall(r"\b[a-zA-Z0-9]{40,}\b", message.text or "")
                             for contract in contracts:
                                 # Skip if the contract is already seen in this channel
@@ -502,6 +502,7 @@ async def monitor_channels(event):
                                 # Notify user only if the contract is found in at least two channels
                                 channels_with_contract = {d["channel"] for d in monitored_data[contract]["details"]}
                                 if len(channels_with_contract) >= 2:
+                                    # Ensure exact match sequences are triggering the notification
                                     details_text = "\n".join(
                                         f"- {detail['channel']} at {detail['timestamp']}"
                                         for detail in monitored_data[contract]["details"]
