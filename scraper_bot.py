@@ -474,7 +474,7 @@ async def monitor_channels(event):
                     async for message in user_client.iter_messages(channel_url, limit=100):
                         if message.text:
                             # Extract contract addresses from the message
-                            contracts = re.findall(r"\b[0-9a-zA-Z]{40,}\b", message.text or "")
+                            contracts = re.findall(r"\b[a-zA-Z0-9]{40,}\b", message.text or "")
                             for contract in contracts:
                                 # Skip if the contract is already seen in this channel
                                 if contract in seen_contracts_per_channel[channel_url]:
