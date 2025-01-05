@@ -106,7 +106,7 @@ def delete_scraper_bot_session():
 save_scraper_bot_session("example_session_data")
 
 # Delete the session
-delete_scraper_bot_session()
+# delete_scraper_bot_session()
 
 
 def get_scraper_bot_session():
