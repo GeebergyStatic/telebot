@@ -92,6 +92,22 @@ def save_scraper_bot_session(session_string):
     db_conn.commit()
     print("Scraper bot session saved successfully.")
 
+# Helper function to delete scraper bot session
+def delete_scraper_bot_session():
+    query = """
+        DELETE FROM scraper_bot_sessions
+        WHERE id = 1;
+    """
+    db_cursor.execute(query)
+    db_conn.commit()
+    print("Scraper bot session deleted successfully.")
+
+# Example: Save session (optional, for context)
+save_scraper_bot_session("example_session_data")
+
+# Delete the session
+delete_scraper_bot_session()
+
 
 def get_scraper_bot_session():
     query = "SELECT session_data FROM scraper_bot_sessions WHERE id = 1;"
