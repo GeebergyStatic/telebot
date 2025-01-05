@@ -65,6 +65,16 @@ def save_bot_session(session_string):
     print("Bot session saved successfully.")
 
 
+def delete_bot_session():
+    query = "DELETE FROM bot_sessions WHERE id = 1;"
+    db_cursor.execute(query)
+    db_conn.commit()
+    print("Bot session deleted successfully.")
+
+# Delete the session at the end
+delete_bot_session()
+
+
 def get_bot_session():
     query = "SELECT session_data FROM bot_sessions WHERE id = 1;"
     db_cursor.execute(query)
@@ -83,12 +93,24 @@ def get_session_from_db(chat_id):
 
 # Create bot_client with Persistent Session
 def create_bot_client(api_id, api_hash, bot_token):
+    # Get the existing session string from the database
     session_string = get_bot_session()
-    session = StringSession(session_string) if session_string else StringSession()
-    
+
+    # Initialize session with validation
+    if session_string:
+        try:
+            session = StringSession(session_string)
+        except ValueError:
+            print("Invalid session string detected. Creating a new session.")
+            session = StringSession()
+    else:
+        print("No session found in the database. Creating a new session.")
+        session = StringSession()
+
+    # Initialize the bot client
     bot_client = TelegramClient(session, api_id, api_hash).start(bot_token=bot_token)
 
-    # Save the session string to the database after starting the bot
+    # Save the session string to the database
     save_bot_session(bot_client.session.save())
 
     return bot_client
