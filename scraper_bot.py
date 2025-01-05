@@ -218,12 +218,22 @@ def is_user_authenticated(chat_id):
 def create_scraper_bot(api_id, api_hash, bot_token):
     # Get the existing session string from the database
     session_string = get_scraper_bot_session()
-    session = StringSession(session_string) if session_string else StringSession()
-    
+
+    # Initialize session with fallback for invalid or empty values
+    if session_string:
+        try:
+            session = StringSession(session_string)
+        except ValueError:
+            print("Invalid session string detected. Creating a new session.")
+            session = StringSession()
+    else:
+        print("No session found in the database. Creating a new session.")
+        session = StringSession()
+
     # Initialize the scraper bot client
     scraper_bot = TelegramClient(session, api_id, api_hash).start(bot_token=bot_token)
-    
-    # Save the session string to the database
+
+    # Save the new session string to the database
     save_scraper_bot_session(scraper_bot.session.save())
 
     return scraper_bot
