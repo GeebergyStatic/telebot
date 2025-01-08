@@ -114,7 +114,7 @@ def save_training_data(features, label):
         print("[DEBUG] Saving training data to PostgreSQL...")
         insert_query = "INSERT INTO training_data (features, label) VALUES (%s, %s)"
         db_cursor.execute(insert_query, (json.dumps(features), label))
-        conn.commit()
+        db_conn.commit()
         print("[DEBUG] Training data saved successfully.")
     except Exception as e:
         print(f"[ERROR] Error saving training data: {e}")
