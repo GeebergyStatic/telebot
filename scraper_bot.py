@@ -172,33 +172,42 @@ def get_token_info(contract_address):
         return {"error": f"Error fetching token info: {e}"}
 
 # Evaluate AI prediction
+# Evaluate AI prediction
 def evaluate_contract(features):
     try:
-        print("[DEBUG] Evaluating contract with features:", features)
-        if training_data["features"]:
-            print("[DEBUG] Fitting AI model with current training data...")
+        # Check if there is training data
+        if not training_data["features"] or not training_data["labels"]:
+            return "Not enough training data yet"
+
+        # Train the model if it hasn't been trained
+        if not hasattr(ai_model, "n_classes_"):  # Check if model is fitted
             ai_model.fit(training_data["features"], training_data["labels"])
+
+        # Make predictions
         prediction = ai_model.predict([features])[0]
         confidence = ai_model.predict_proba([features])[0]
-        print(f"[DEBUG] Prediction: {prediction}, Confidence: {confidence}")
+
+        # Return prediction-based advice
         if prediction == 1 and confidence[1] > 0.7:
             return "High chance of pump within the next 24 hours."
         else:
             return "No significant pump expected."
     except Exception as e:
         print(f"[ERROR] Error during contract evaluation: {e}")
-        return "Error during evaluation."
+        return "Error in evaluating contract."
+
 
 # Extract features for AI training
 def extract_features(token_info):
-    print("[DEBUG] Extracting features from token info:", token_info)
-    features = [
-        token_info.get("price", 0),
-        token_info.get("volume_24h", 0),
-        token_info.get("liquidity", 0),
-    ]
-    print(f"[DEBUG] Extracted features: {features}")
-    return features
+    try:
+        return [
+            float(token_info.get("price", 0)) if token_info.get("price") != "N/A" else 0,
+            float(token_info.get("volume_24h", 0)) if token_info.get("volume_24h") != "N/A" else 0,
+            float(token_info.get("liquidity", 0)) if token_info.get("liquidity") != "N/A" else 0,
+        ]
+    except Exception as e:
+        print(f"[ERROR] Error during feature extraction: {e}")
+        return [0, 0, 0]  # Fallback to default values
 
 
 
@@ -613,6 +622,9 @@ async def monitor_channels(event):
                                 features = extract_features(token_info)
                                 advice = evaluate_contract(features)
 
+                                if advice == "Not enough training data yet":
+                                    print("[DEBUG] Fallback response triggered for contract evaluation.")
+
                                 save_training_data(features, 1 if token_info.get("volume_24h", 0) > 1e6 else 0)
 
                                 local_time = convert_to_user_timezone(message.date, user_timezone)
@@ -645,6 +657,7 @@ async def monitor_channels(event):
 
     asyncio.create_task(monitor())
     asyncio.create_task(train_ai_model())
+
 
 
 @bot.on(events.NewMessage(pattern=r"/channels"))
