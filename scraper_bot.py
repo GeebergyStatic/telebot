@@ -660,15 +660,6 @@ async def monitor_channels(event):
     seen_contracts = {}
     monitored_data = {}
 
-    # Ensure training runs in a separate background task
-    async def train_model_in_background():
-        while True:
-            await asyncio.sleep(60 * 60 * 24)  # Trigger training every 24 hours
-            await train_ai_model()
-
-    # Start the background task for training
-    asyncio.create_task(train_model_in_background())
-
     async def monitor():
         while True:
             for channel_url in channels:
@@ -731,7 +722,7 @@ async def monitor_channels(event):
                                     )
 
                                     response_text = (
-                                        f"Contract: `{contract}`\n"
+                                        f"Contract: {contract}\n"
                                         f"Symbol: ${token_info.get('symbol', 'N/A')}\n"
                                         f"Price (USD): {formatted_price}\n"
                                         f"24h Volume: {formatted_volume}\n"
@@ -751,6 +742,7 @@ async def monitor_channels(event):
 
     task = asyncio.create_task(monitor())
     monitoring_tasks[chat_id] = task
+    asyncio.create_task(train_ai_model())
 
 
 
