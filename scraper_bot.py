@@ -19,6 +19,7 @@ from telethon.tl.functions.channels import JoinChannelRequest
 import threading
 import json
 import requests
+from collections import defaultdict
 
 monitoring_tasks = {}
 
@@ -629,96 +630,87 @@ async def monitor_channels(event):
         return
 
     await bot.send_message(chat_id, "Monitoring channels for contract addresses...")
-    monitored_data = {}
+    seen_contracts_per_channel = defaultdict(set)  # Tracks seen contracts per channel
+    monitored_data = defaultdict(lambda: {"count": 0, "details": []})  # Stores monitored data
+    contract_queue = asyncio.Queue()  # Queue for processing contracts
 
-    # To keep track of already-seen contracts per channel
-    seen_contracts_per_channel = {}
-
+    # Monitor channels and enqueue contracts
     async def monitor():
         while True:
             for channel_url in channels:
-                if channel_url not in seen_contracts_per_channel:
-                    seen_contracts_per_channel[channel_url] = set()  # Initialize for each channel
-
                 try:
                     async for message in user_client.iter_messages(channel_url, limit=100):
                         if message.text:
                             # Extract sequences of at least 40 alphanumeric characters
-                            contracts = re.findall(r"\b[a-zA-Z0-9]{40,}\b", message.text or "")
+                            contracts = re.findall(r"\b[a-zA-Z0-9]{40,}\b", message.text)
                             for contract in contracts:
-                                # Skip if the contract is already seen in this channel
+                                # Skip if already seen in this channel
                                 if contract in seen_contracts_per_channel[channel_url]:
                                     continue
-
-                                seen_contracts_per_channel[channel_url].add(contract)  # Mark as seen
-
-                                if contract not in monitored_data:
-                                    monitored_data[contract] = {
-                                        "count": 0,
-                                        "details": []  # Store group and timestamp together
-                                    }
-
-                                token_info = get_token_info(contract)
-                                if "error" in token_info:
-                                    continue
-
-                                print('hi')
-                                features = extract_features(token_info)
-                                advice, probability = evaluate_contract(features)
-
-                                save_training_data(features, 1 if token_info.get("volume_24h", 0) > 1e6 else 0)
-
-                                # Convert the timestamp to the user's local time
-                                local_time = convert_to_user_timezone(message.date, user_timezone)
-
-                                # Format the local time in the desired format
-                                local_time_str = local_time.strftime('%Y-%m-%d %H:%M:%S')
-                                monitored_data[contract]["count"] += 1
-                                monitored_data[contract]["details"].append({
-                                    "channel": channel_url,
-                                    "timestamp": local_time_str  # Use actual message timestamp
-                                })
-
-                                # Format all numerical values as currency
-                                price = Decimal(token_info.get('price', 0))
-
-                                # Format with up to 8 decimal places, but only if necessary
-                                if price != price.to_integral_value():  # Check if it's not an integer
-                                    formatted_price = f"{price:.8f}"
-                                else:
-                                    formatted_price = f"{price:.2f}"  # For whole numbers, show only 2 decimals
-                                formatted_volume = format_currency(token_info.get('volume_24h', 0))
-                                formatted_liquidity = format_currency(token_info.get('liquidity', 0))
-                                formatted_market_cap = format_currency(token_info.get('market_cap', 0))
-
-                                # Only send response if the contract was detected in at least two groups
-                                if monitored_data[contract]["count"] >= 2:
-                                    details_text = "\n".join(
-                                        f"- {detail['channel']} at {detail['timestamp']}"
-                                        for detail in monitored_data[contract]["details"]
-                                    )
-
-                                    response_text = (
-                                        f"Contract: {contract}\n"
-                                        f"Symbol: ${token_info.get('symbol', 'N/A')}\n"
-                                        f"Price (USD): {formatted_price}\n"
-                                        f"24h Volume: {formatted_volume}\n"
-                                        f"Liquidity: {formatted_liquidity}\n"
-                                        f"Market Cap (USD): {formatted_market_cap}\n"
-                                        f"Prediction Probability: {probability * 100:.2f}%\n"
-                                        f"AI Prediction: {advice}\n\n"
-                                        f"Detected {monitored_data[contract]['count']} times across the following groups:\n{details_text}"
-                                    )
-
-                                    await bot.send_message(chat_id, response_text)
+                                seen_contracts_per_channel[channel_url].add(contract)
+                                await contract_queue.put((contract, message.date, channel_url))
                 except Exception as e:
                     await bot.send_message(chat_id, f"Error monitoring {channel_url}: {e}")
 
             await asyncio.sleep(10)  # Check every 10 seconds
 
-    task = asyncio.create_task(monitor())
-    monitoring_tasks[chat_id] = task
-    asyncio.create_task(train_ai_model())
+    # Process contracts from the queue
+    async def process_contracts():
+        while True:
+            contract, timestamp, channel_url = await contract_queue.get()
+            try:
+                token_info = get_token_info(contract)
+                if "error" in token_info:
+                    continue
+
+                features = extract_features(token_info)
+                advice, probability = evaluate_contract(features)
+                save_training_data(features, 1 if token_info.get("volume_24h", 0) > 1e6 else 0)
+
+                local_time = convert_to_user_timezone(timestamp, user_timezone)
+                local_time_str = local_time.strftime('%Y-%m-%d %H:%M:%S')
+
+                monitored_data[contract]["count"] += 1
+                monitored_data[contract]["details"].append({
+                    "channel": channel_url,
+                    "timestamp": local_time_str
+                })
+
+                # Only send response if the contract was detected in at least two groups
+                if monitored_data[contract]["count"] >= 2:
+                    details_text = "\n".join(
+                        f"- {detail['channel']} at {detail['timestamp']}"
+                        for detail in monitored_data[contract]["details"]
+                    )
+
+                    price = Decimal(token_info.get('price', 0))
+                    formatted_price = f"{price:.8f}" if price != price.to_integral_value() else f"{price:.2f}"
+                    formatted_volume = format_currency(token_info.get('volume_24h', 0))
+                    formatted_liquidity = format_currency(token_info.get('liquidity', 0))
+                    formatted_market_cap = format_currency(token_info.get('market_cap', 0))
+
+                    response_text = (
+                        f"Contract: {contract}\n"
+                        f"Symbol: ${token_info.get('symbol', 'N/A')}\n"
+                        f"Price (USD): {formatted_price}\n"
+                        f"24h Volume: {formatted_volume}\n"
+                        f"Liquidity: {formatted_liquidity}\n"
+                        f"Market Cap (USD): {formatted_market_cap}\n"
+                        f"Prediction Probability: {probability * 100:.2f}%\n"
+                        f"AI Prediction: {advice}\n\n"
+                        f"Detected {monitored_data[contract]['count']} times across the following groups:\n{details_text}"
+                    )
+
+                    await bot.send_message(chat_id, response_text)
+            except Exception as e:
+                await bot.send_message(chat_id, f"Error processing contract {contract}: {e}")
+
+            contract_queue.task_done()
+
+    # Start monitoring and processing tasks
+    asyncio.create_task(monitor())
+    asyncio.create_task(process_contracts())
+
 
 
 @bot.on(events.NewMessage(pattern=r"/train"))
