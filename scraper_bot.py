@@ -703,8 +703,8 @@ async def handle_user_message(event):
 
     wallet_address = None
 
-    # Check if the message matches a wallet address pattern
-    if re.match(r"\b[a-zA-Z0-9]{40}\b", message):
+    # Updated regex to match addresses with at least 40 characters
+    if re.match(r"\b[a-zA-Z0-9]{40,}\b", message):
         wallet_address = message
 
     if wallet_address:
@@ -723,7 +723,7 @@ async def handle_user_message(event):
         formatted_market_cap = format_currency(token_info.get('market_cap', 0))
 
         response_text = (
-            f"Contract: `{wallet_address}`\n"
+            f"Contract: {wallet_address}\n"
             f"Symbol: ${token_info.get('symbol', 'N/A')}\n"
             f"Price (USD): {formatted_price}\n"
             f"24h Volume: {formatted_volume}\n"
