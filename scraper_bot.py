@@ -204,18 +204,14 @@ def get_token_info(contract_address):
                 token_info_cache[contract_address] = token_info
                 return token_info
             else:
-                print(f"No pairs found or 'pairs' is None for contract {contract_address}.")
-                token_info_cache[contract_address] = {"error": "No pairs found"}
+                token_info_cache[contract_address] = {"error": "No pairs found in the API response."}
                 return {"error": "No pairs found in the API response."}
         else:
-            print(f"Error: Received HTTP error {response.status_code} for contract {contract_address}.")
             token_info_cache[contract_address] = {"error": f"HTTP error {response.status_code}"}
             return {"error": f"HTTP error {response.status_code}"}
     except Exception as e:
-        print(f"Exception occurred for contract {contract_address}: {e}")
         token_info_cache[contract_address] = {"error": f"Error fetching token info: {e}"}
         return {"error": f"Error fetching token info: {e}"}
-
 
 # Extract features for AI
 def extract_features(token_info):
@@ -701,18 +697,24 @@ async def handle_user_message(event):
     if message.startswith('/'):
         return
 
-    wallet_address = None
-
     # Updated regex to match addresses with at least 40 characters
+    wallet_address = None
     if re.match(r"\b[a-zA-Z0-9]{40,}\b", message):
         wallet_address = message
 
+    # If a valid wallet address is provided
     if wallet_address:
         token_info = get_token_info(wallet_address)
+
         if "error" in token_info:
-            await bot.send_message(chat_id, f"Error retrieving information for address {wallet_address}.")
+            # Send the error message only once
+            cached_error = token_info_cache.get(wallet_address)
+            if cached_error and cached_error.get("error") == token_info["error"]:
+                return
+            await bot.send_message(chat_id, f"Error retrieving information for address {wallet_address}: {token_info['error']}")
             return
 
+        # Extract and format data
         features = extract_features(token_info)
         advice, probability = evaluate_contract(features)
 
@@ -735,8 +737,8 @@ async def handle_user_message(event):
 
         await bot.send_message(chat_id, response_text)
     else:
+        # Only respond once for invalid input
         await bot.send_message(chat_id, "No valid wallet address found. Please send a valid address.")
-
 
 
 
