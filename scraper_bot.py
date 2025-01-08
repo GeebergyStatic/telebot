@@ -97,13 +97,16 @@ ai_model = RandomForestClassifier()
 # Load training data from PostgreSQL
 def load_training_data():
     try:
+        print("[DEBUG] Loading training data from PostgreSQL...")
         db_cursor.execute("SELECT features, label FROM training_data")
         rows = db_cursor.fetchall()
+        print(f"[DEBUG] Fetched {len(rows)} rows from training_data.")
         features = [json.loads(row[0]) for row in rows]
         labels = [row[1] for row in rows]
+        print(f"[DEBUG] Extracted features and labels: {len(features)} features, {len(labels)} labels.")
         return {"features": features, "labels": labels}
     except Exception as e:
-        print(f"Error loading training data: {e}")
+        print(f"[ERROR] Error loading training data: {e}")
         return {"features": [], "labels": []}
 
 training_data = load_training_data()
@@ -111,56 +114,90 @@ training_data = load_training_data()
 # Save training data to PostgreSQL
 def save_training_data(features, label):
     try:
+        print("[DEBUG] Saving training data to PostgreSQL...")
+        print(f"[DEBUG] Features: {features}, Label: {label}")
         insert_query = "INSERT INTO training_data (features, label) VALUES (%s, %s)"
         db_cursor.execute(insert_query, (json.dumps(features), label))
+        print("[DEBUG] Training data saved successfully.")
     except Exception as e:
-        print(f"Error saving training data: {e}")
+        print(f"[ERROR] Error saving training data: {e}")
 
 # Train AI in the background
 async def train_ai_model():
     while True:
-        if training_data["features"]:
-            ai_model.fit(training_data["features"], training_data["labels"])
+        try:
+            print("[DEBUG] Starting AI model training...")
+            if training_data["features"]:
+                print(f"[DEBUG] Training on {len(training_data['features'])} feature sets.")
+                ai_model.fit(training_data["features"], training_data["labels"])
+                print("[DEBUG] AI model training complete.")
+            else:
+                print("[WARNING] No training data available for AI training.")
+        except Exception as e:
+            print(f"[ERROR] Error during AI model training: {e}")
         await asyncio.sleep(86400)  # Train every 24 hours
 
 # Fetch token info using DexScreener API
 def get_token_info(contract_address):
     api_url = f"https://api.dexscreener.io/latest/dex/tokens/{contract_address}"
+    print(f"[DEBUG] Fetching token info from URL: {api_url}")
     try:
         response = requests.get(api_url)
+        print(f"[DEBUG] HTTP status code: {response.status_code}")
         if response.status_code == 200:
             data = response.json()
+            print(f"[DEBUG] API response JSON: {data}")
             pairs = data.get("pairs", [])
             if pairs:
+                print(f"[DEBUG] Found pairs: {pairs}")
                 first_pair = pairs[0]
-                return {
+                token_info = {
                     "name": first_pair.get("baseToken", {}).get("name", "Unknown"),
                     "price": first_pair.get("priceUsd", "N/A"),
                     "volume_24h": first_pair.get("volume", {}).get("usd24h", "N/A"),
                     "liquidity": first_pair.get("liquidity", {}).get("usd", "N/A"),
                 }
-        return {"error": "No data available for this token on DexScreener."}
+                print(f"[DEBUG] Extracted token info: {token_info}")
+                return token_info
+            else:
+                print(f"[WARNING] No pairs data available for token {contract_address}.")
+                return {"error": "No data available for this token on DexScreener."}
+        else:
+            print(f"[ERROR] Non-200 status code received: {response.status_code}")
+            return {"error": f"HTTP error {response.status_code}"}
     except Exception as e:
+        print(f"[ERROR] Exception occurred while fetching token info: {e}")
         return {"error": f"Error fetching token info: {e}"}
 
 # Evaluate AI prediction
 def evaluate_contract(features):
-    if training_data["features"]:
-        ai_model.fit(training_data["features"], training_data["labels"])
-    prediction = ai_model.predict([features])[0]
-    confidence = ai_model.predict_proba([features])[0]
-    if prediction == 1 and confidence[1] > 0.7:
-        return "High chance of pump within the next 24 hours."
-    else:
-        return "No significant pump expected."
+    try:
+        print("[DEBUG] Evaluating contract with features:", features)
+        if training_data["features"]:
+            print("[DEBUG] Fitting AI model with current training data...")
+            ai_model.fit(training_data["features"], training_data["labels"])
+        prediction = ai_model.predict([features])[0]
+        confidence = ai_model.predict_proba([features])[0]
+        print(f"[DEBUG] Prediction: {prediction}, Confidence: {confidence}")
+        if prediction == 1 and confidence[1] > 0.7:
+            return "High chance of pump within the next 24 hours."
+        else:
+            return "No significant pump expected."
+    except Exception as e:
+        print(f"[ERROR] Error during contract evaluation: {e}")
+        return "Error during evaluation."
 
 # Extract features for AI training
 def extract_features(token_info):
-    return [
+    print("[DEBUG] Extracting features from token info:", token_info)
+    features = [
         token_info.get("price", 0),
         token_info.get("volume_24h", 0),
         token_info.get("liquidity", 0),
     ]
+    print(f"[DEBUG] Extracted features: {features}")
+    return features
+
 
 
 # Helper functions
@@ -515,38 +552,31 @@ async def confirm_remove_channel(event):
 async def monitor_channels(event):
     chat_id = event.chat_id
     user_timezone = "UTC"
-    print(f"[DEBUG] Monitor command triggered by chat_id: {chat_id}")
 
     if not is_user_authenticated(chat_id):
-        await bot.send_message(chat_id, "You need to authenticate first. Use /login to get started.")
-        print("[DEBUG] User not authenticated.")
+        await bot.send_message(chat_id, "You need to authenticate first. Use /login to get started.")  
         return
 
     session_string = get_session_from_db(chat_id)
     if not session_string:
         await bot.send_message(chat_id, "Session not found. Please authenticate again.")
-        print("[DEBUG] Session string not found.")
         return
 
     print("[DEBUG] Retrieved session string.")
     user_client = TelegramClient(StringSession(session_string), api_id, api_hash)
     await user_client.connect()
-    print("[DEBUG] Connected to user client.")
 
     if not await user_client.is_user_authorized():
         await bot.send_message(chat_id, "Your session has expired. Please reauthenticate.")
         await user_client.disconnect()
-        print("[DEBUG] User client not authorized.")
         return
 
     channels = get_channels_for_user(chat_id)
     if not channels:
         await bot.send_message(chat_id, "No channels to monitor. Use /join to add channels first.")
         await user_client.disconnect()
-        print("[DEBUG] No channels found for user.")
         return
 
-    print(f"[DEBUG] Channels to monitor: {channels}")
     await bot.send_message(chat_id, "Monitoring channels for contract addresses...")
     seen_contracts = {}
     monitored_data = {}
@@ -554,7 +584,6 @@ async def monitor_channels(event):
     async def monitor():
         while True:
             for channel_url in channels:
-                print(f"[DEBUG] Monitoring channel: {channel_url}")
                 seen_contracts[channel_url] = seen_contracts.get(channel_url, set())
 
                 try:
@@ -562,16 +591,13 @@ async def monitor_channels(event):
                         if not message.text:
                             continue
 
-                        print(f"[DEBUG] Processing message from {channel_url}.")
                         contracts = re.findall(r"\b[a-zA-Z0-9]{40,}\b", message.text)
                         if contracts:
-                            print(f"[DEBUG] Found contracts: {contracts}")
 
                         for contract in contracts:
                             if contract in seen_contracts[channel_url]:
                                 continue
 
-                            print(f"[DEBUG] New contract detected: {contract}")
                             seen_contracts[channel_url].add(contract)
                             if contract not in monitored_data:
                                 monitored_data[contract] = {
@@ -581,15 +607,12 @@ async def monitor_channels(event):
 
                             token_info = get_token_info(contract)
                             if "error" in token_info:
-                                print(f"[DEBUG] Error in token info for contract {contract}.")
                                 continue
 
-                            print(f"[DEBUG] Token info retrieved: {token_info}")
                             features = extract_features(token_info)
                             advice = evaluate_contract(features)
 
                             save_training_data(features, 1 if token_info.get("volume_24h", 0) > 1e6 else 0)
-                            print(f"[DEBUG] Training data saved for contract: {contract}")
 
                             local_time = convert_to_user_timezone(message.date, user_timezone)
                             local_time_str = local_time.strftime('%Y-%m-%d %H:%M:%S')
@@ -614,19 +637,14 @@ async def monitor_channels(event):
                                 f"Detected in the following groups:\n{details_text}"
                             )
                             await bot.send_message(chat_id, response_text)
-                            print(f"[DEBUG] Sent message for contract: {contract}")
                 except Exception as e:
-                    print(f"[ERROR] Error monitoring {channel_url}: {e}")
                     await bot.send_message(chat_id, f"Error monitoring {channel_url}: {e}")
 
             await asyncio.sleep(10)
-            print("[DEBUG] Monitoring cycle completed, sleeping for 10 seconds.")
 
     asyncio.create_task(monitor())
-    print("[DEBUG] Monitor task started.")
 
     asyncio.create_task(train_ai_model())
-    print("[DEBUG] AI training task started.")
 
 
 @bot.on(events.NewMessage(pattern=r"/channels"))
