@@ -663,6 +663,10 @@ async def monitor_channels(event):
                                     continue
 
                                 print('hi')
+                                features = extract_features(token_info)
+                                advice, probability = evaluate_contract(features)
+
+                                save_training_data(features, 1 if token_info.get("volume_24h", 0) > 1e6 else 0)
 
                                 # Convert the timestamp to the user's local time
                                 local_time = convert_to_user_timezone(message.date, user_timezone)
@@ -675,21 +679,38 @@ async def monitor_channels(event):
                                     "timestamp": local_time_str  # Use actual message timestamp
                                 })
 
-                                # Notify user only if the contract is found in at least two channels
-                                channels_with_contract = {d["channel"] for d in monitored_data[contract]["details"]}
-                                if len(channels_with_contract) >= 2:
-                                    # Ensure exact match sequences are triggering the notification
+                                # Format all numerical values as currency
+                                price = Decimal(token_info.get('price', 0))
+
+                                # Format with up to 8 decimal places, but only if necessary
+                                if price != price.to_integral_value():  # Check if it's not an integer
+                                    formatted_price = f"{price:.8f}"
+                                else:
+                                    formatted_price = f"{price:.2f}"  # For whole numbers, show only 2 decimals
+                                formatted_volume = format_currency(token_info.get('volume_24h', 0))
+                                formatted_liquidity = format_currency(token_info.get('liquidity', 0))
+                                formatted_market_cap = format_currency(token_info.get('market_cap', 0))
+
+                                # Only send response if the contract was detected in at least two groups
+                                if monitored_data[contract]["count"] >= 2:
                                     details_text = "\n".join(
                                         f"- {detail['channel']} at {detail['timestamp']}"
                                         for detail in monitored_data[contract]["details"]
                                     )
-                                    await bot.send_message(
-                                        chat_id,
-                                        (
-                                            f"Contract `{contract}` detected {monitored_data[contract]['count']} times "
-                                            f"in the following groups:\n{details_text}"
-                                        )
+
+                                    response_text = (
+                                        f"Contract: {contract}\n"
+                                        f"Symbol: ${token_info.get('symbol', 'N/A')}\n"
+                                        f"Price (USD): {formatted_price}\n"
+                                        f"24h Volume: {formatted_volume}\n"
+                                        f"Liquidity: {formatted_liquidity}\n"
+                                        f"Market Cap (USD): {formatted_market_cap}\n"
+                                        f"Prediction Probability: {probability * 100:.2f}%\n"
+                                        f"AI Prediction: {advice}\n\n"
+                                        f"Detected {monitored_data[contract]['count']} times across the following groups:\n{details_text}"
                                     )
+
+                                    await bot.send_message(chat_id, response_text)
                 except Exception as e:
                     await bot.send_message(chat_id, f"Error monitoring {channel_url}: {e}")
 
