@@ -677,19 +677,16 @@ async def monitor_channels(event):
                                     "timestamp": local_time_str
                                 })
 
-                                # Format all numerical values as currency
                                 price = Decimal(token_info.get('price', 0))
-
-                                # Format with up to 8 decimal places, but only if necessary
-                                if price != price.to_integral_value():  # Check if it's not an integer
+                                if price != price.to_integral_value():
                                     formatted_price = f"{price:.8f}"
                                 else:
-                                    formatted_price = f"{price:.2f}"  # For whole numbers, show only 2 decimals
+                                    formatted_price = f"{price:.2f}"
+
                                 formatted_volume = format_currency(token_info.get('volume_24h', 0))
                                 formatted_liquidity = format_currency(token_info.get('liquidity', 0))
                                 formatted_market_cap = format_currency(token_info.get('market_cap', 0))
 
-                                # Only send response if the contract was detected in at least two groups
                                 if monitored_data[contract]["count"] >= 2:
                                     details_text = "\n".join(
                                         f"- {detail['channel']} at {detail['timestamp']}"
