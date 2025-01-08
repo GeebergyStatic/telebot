@@ -510,34 +510,43 @@ async def confirm_remove_channel(event):
 
 
 # Telegram bot monitoring function
+# Telegram bot monitoring function
 @bot.on(events.NewMessage(pattern=r"/monitor"))
 async def monitor_channels(event):
     chat_id = event.chat_id
     user_timezone = "UTC"
+    print(f"[DEBUG] Monitor command triggered by chat_id: {chat_id}")
 
     if not is_user_authenticated(chat_id):
         await bot.send_message(chat_id, "You need to authenticate first. Use /login to get started.")
+        print("[DEBUG] User not authenticated.")
         return
 
     session_string = get_session_from_db(chat_id)
     if not session_string:
         await bot.send_message(chat_id, "Session not found. Please authenticate again.")
+        print("[DEBUG] Session string not found.")
         return
 
+    print("[DEBUG] Retrieved session string.")
     user_client = TelegramClient(StringSession(session_string), api_id, api_hash)
     await user_client.connect()
+    print("[DEBUG] Connected to user client.")
 
     if not await user_client.is_user_authorized():
         await bot.send_message(chat_id, "Your session has expired. Please reauthenticate.")
         await user_client.disconnect()
+        print("[DEBUG] User client not authorized.")
         return
 
     channels = get_channels_for_user(chat_id)
     if not channels:
         await bot.send_message(chat_id, "No channels to monitor. Use /join to add channels first.")
         await user_client.disconnect()
+        print("[DEBUG] No channels found for user.")
         return
 
+    print(f"[DEBUG] Channels to monitor: {channels}")
     await bot.send_message(chat_id, "Monitoring channels for contract addresses...")
     seen_contracts = {}
     monitored_data = {}
@@ -545,6 +554,7 @@ async def monitor_channels(event):
     async def monitor():
         while True:
             for channel_url in channels:
+                print(f"[DEBUG] Monitoring channel: {channel_url}")
                 seen_contracts[channel_url] = seen_contracts.get(channel_url, set())
 
                 try:
@@ -552,11 +562,16 @@ async def monitor_channels(event):
                         if not message.text:
                             continue
 
+                        print(f"[DEBUG] Processing message from {channel_url}.")
                         contracts = re.findall(r"\b[a-zA-Z0-9]{40,}\b", message.text)
+                        if contracts:
+                            print(f"[DEBUG] Found contracts: {contracts}")
+
                         for contract in contracts:
                             if contract in seen_contracts[channel_url]:
                                 continue
 
+                            print(f"[DEBUG] New contract detected: {contract}")
                             seen_contracts[channel_url].add(contract)
                             if contract not in monitored_data:
                                 monitored_data[contract] = {
@@ -565,17 +580,17 @@ async def monitor_channels(event):
                                 }
 
                             token_info = get_token_info(contract)
-
                             if "error" in token_info:
+                                print(f"[DEBUG] Error in token info for contract {contract}.")
                                 continue
 
+                            print(f"[DEBUG] Token info retrieved: {token_info}")
                             features = extract_features(token_info)
                             advice = evaluate_contract(features)
 
-                            # Add to training data
                             save_training_data(features, 1 if token_info.get("volume_24h", 0) > 1e6 else 0)
+                            print(f"[DEBUG] Training data saved for contract: {contract}")
 
-                            # Convert the timestamp to the user's local time
                             local_time = convert_to_user_timezone(message.date, user_timezone)
                             local_time_str = local_time.strftime('%Y-%m-%d %H:%M:%S')
 
@@ -585,7 +600,6 @@ async def monitor_channels(event):
                                 "timestamp": local_time_str
                             })
 
-                            # Build response with channel details
                             details_text = "\n".join(
                                 f"- {detail['channel']} at {detail['timestamp']}"
                                 for detail in monitored_data[contract]["details"]
@@ -600,14 +614,19 @@ async def monitor_channels(event):
                                 f"Detected in the following groups:\n{details_text}"
                             )
                             await bot.send_message(chat_id, response_text)
+                            print(f"[DEBUG] Sent message for contract: {contract}")
                 except Exception as e:
+                    print(f"[ERROR] Error monitoring {channel_url}: {e}")
                     await bot.send_message(chat_id, f"Error monitoring {channel_url}: {e}")
 
             await asyncio.sleep(10)
+            print("[DEBUG] Monitoring cycle completed, sleeping for 10 seconds.")
 
     asyncio.create_task(monitor())
-    # Background AI training task
+    print("[DEBUG] Monitor task started.")
+
     asyncio.create_task(train_ai_model())
+    print("[DEBUG] AI training task started.")
 
 
 @bot.on(events.NewMessage(pattern=r"/channels"))
