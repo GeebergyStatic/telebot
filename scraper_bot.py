@@ -190,6 +190,11 @@ def is_valid_float(value):
     except (TypeError, ValueError):
         return False
 
+
+# Check if the model is trained
+def is_model_trained():
+    return len(training_data["features"]) > 0
+
 # Evaluate contract and provide advice along with probability
 def evaluate_contract(features):
     try:
