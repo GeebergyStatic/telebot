@@ -694,7 +694,9 @@ async def monitor_channels(event):
 
             await asyncio.sleep(10)  # Check every 10 seconds
 
-    asyncio.create_task(monitor())
+    task = asyncio.create_task(monitor())
+    monitoring_tasks[chat_id] = task
+    asyncio.create_task(train_ai_model())
 
 
 @bot.on(events.NewMessage(pattern=r"/train"))
