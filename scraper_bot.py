@@ -611,7 +611,6 @@ async def monitor_channels(event):
     chat_id = event.chat_id
     user_timezone = get_user_timezone(chat_id)
 
-    # If a timezone is set, proceed with monitoring
     user_timezone = user_timezone or "UTC"  # Default to UTC if no timezone is found
     if not is_user_authenticated(chat_id):
         await bot.send_message(chat_id, "You need to authenticate first. Use /login to get started.")
@@ -639,89 +638,99 @@ async def monitor_channels(event):
         return
 
     await bot.send_message(chat_id, "Monitoring channels for contract addresses...")
-    seen_contracts_per_channel = defaultdict(set)  # Tracks seen contracts per channel
-    monitored_data = defaultdict(lambda: {"count": 0, "details": []})  # Stores monitored data
-    contract_queue = asyncio.Queue()  # Queue for processing contracts
+    monitored_data = {}
+    seen_contracts_per_channel = {}
 
-    # Monitor channels and enqueue contracts
     async def monitor():
         while True:
-            print('hi')
             for channel_url in channels:
+                if channel_url not in seen_contracts_per_channel:
+                    seen_contracts_per_channel[channel_url] = set()
+
                 try:
                     async for message in user_client.iter_messages(channel_url, limit=100):
                         if message.text:
-                            # Extract sequences of at least 40 alphanumeric characters
-                            contracts = re.findall(r"\b[a-zA-Z0-9]{40,}\b", message.text)
+                            contracts = re.findall(r"\b[a-zA-Z0-9]{40,}\b", message.text or "")
                             for contract in contracts:
-                                # Skip if already seen in this channel
                                 if contract in seen_contracts_per_channel[channel_url]:
                                     continue
+
                                 seen_contracts_per_channel[channel_url].add(contract)
-                                await contract_queue.put((contract, message.date, channel_url))
+                                if contract not in monitored_data:
+                                    monitored_data[contract] = {
+                                        "count": 0,
+                                        "details": []
+                                    }
+
+                                local_time = convert_to_user_timezone(message.date, user_timezone)
+                                local_time_str = local_time.strftime('%Y-%m-%d %H:%M:%S')
+                                monitored_data[contract]["count"] += 1
+                                monitored_data[contract]["details"].append({
+                                    "channel": channel_url,
+                                    "timestamp": local_time_str
+                                })
+
+                                if monitored_data[contract]["count"] >= 2:
+                                    details_text = "\n".join(
+                                        f"- {detail['channel']} at {detail['timestamp']}"
+                                        for detail in monitored_data[contract]["details"]
+                                    )
+
+                                    response_text = (
+                                        f"Contract: {contract}\n"
+                                        f"Detected {monitored_data[contract]['count']} times across the following groups:\n{details_text}"
+                                    )
+
+                                    await bot.send_message(chat_id, response_text)
                 except Exception as e:
                     await bot.send_message(chat_id, f"Error monitoring {channel_url}: {e}")
 
-            await asyncio.sleep(10)  # Check every 10 seconds
+            await asyncio.sleep(10)
 
-    # Process contracts from the queue
-    async def process_contracts():
-        while True:
-            contract, timestamp, channel_url = await contract_queue.get()
-            try:
-                token_info = get_token_info(contract)
-                if "error" in token_info:
-                    continue
-
-                features = extract_features(token_info)
-                advice, probability = evaluate_contract(features)
-                save_training_data(features, 1 if token_info.get("volume_24h", 0) > 1e6 else 0)
-
-                local_time = convert_to_user_timezone(timestamp, user_timezone)
-                local_time_str = local_time.strftime('%Y-%m-%d %H:%M:%S')
-
-                monitored_data[contract]["count"] += 1
-                monitored_data[contract]["details"].append({
-                    "channel": channel_url,
-                    "timestamp": local_time_str
-                })
-
-                # Only send response if the contract was detected in at least two groups
-                if monitored_data[contract]["count"] >= 2:
-                    details_text = "\n".join(
-                        f"- {detail['channel']} at {detail['timestamp']}"
-                        for detail in monitored_data[contract]["details"]
-                    )
-
-                    price = Decimal(token_info.get('price', 0))
-                    formatted_price = f"{price:.8f}" if price != price.to_integral_value() else f"{price:.2f}"
-                    formatted_volume = format_currency(token_info.get('volume_24h', 0))
-                    formatted_liquidity = format_currency(token_info.get('liquidity', 0))
-                    formatted_market_cap = format_currency(token_info.get('market_cap', 0))
-
-                    response_text = (
-                        f"Contract: `{contract}`\n"
-                        f"Symbol: ${token_info.get('symbol', 'N/A')}\n"
-                        f"Price (USD): {formatted_price}\n"
-                        f"24h Volume: {formatted_volume}\n"
-                        f"Liquidity: {formatted_liquidity}\n"
-                        f"Market Cap (USD): {formatted_market_cap}\n"
-                        f"Prediction Probability: {probability * 100:.2f}%\n"
-                        f"AI Prediction: {advice}\n\n"
-                        f"Detected {monitored_data[contract]['count']} times across the following groups:\n{details_text}"
-                    )
-
-                    await bot.send_message(chat_id, response_text)
-            except Exception as e:
-                await bot.send_message(chat_id, f"Error processing contract {contract}: {e}")
-
-            contract_queue.task_done()
-
-    # Start monitoring and processing tasks
     task = asyncio.create_task(monitor())
     monitoring_tasks[chat_id] = task
     asyncio.create_task(train_ai_model())
-    asyncio.create_task(process_contracts())
+
+# General message handler
+@bot.on(events.NewMessage)
+async def handle_user_message(event):
+    chat_id = event.chat_id
+    message = event.message.text
+    wallet_address = None
+
+    if re.match(r"\b[a-zA-Z0-9]{40}\b", message):
+        wallet_address = message.strip()
+
+    if wallet_address:
+        token_info = get_token_info(wallet_address)
+        if "error" in token_info:
+            await bot.send_message(chat_id, f"Error retrieving information for address {wallet_address}.")
+            return
+
+        features = extract_features(token_info)
+        advice, probability = evaluate_contract(features)
+
+        price = Decimal(token_info.get('price', 0))
+        formatted_price = f"{price:.8f}" if price != price.to_integral_value() else f"{price:.2f}"
+        formatted_volume = format_currency(token_info.get('volume_24h', 0))
+        formatted_liquidity = format_currency(token_info.get('liquidity', 0))
+        formatted_market_cap = format_currency(token_info.get('market_cap', 0))
+
+        response_text = (
+            f"Contract: {wallet_address}\n"
+            f"Symbol: ${token_info.get('symbol', 'N/A')}\n"
+            f"Price (USD): {formatted_price}\n"
+            f"24h Volume: {formatted_volume}\n"
+            f"Liquidity: {formatted_liquidity}\n"
+            f"Market Cap (USD): {formatted_market_cap}\n"
+            f"Prediction Probability: {probability * 100:.2f}%\n"
+            f"AI Prediction: {advice}\n"
+        )
+
+        await bot.send_message(chat_id, response_text)
+    else:
+        await bot.send_message(chat_id, "No valid wallet address found. Please send a valid address.")
+
 
 
 
