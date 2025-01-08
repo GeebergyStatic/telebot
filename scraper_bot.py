@@ -667,7 +667,7 @@ async def monitor_channels(event):
                                 if "error" in token_info:
                                     continue
 
-                                print(token_info)
+                                print('hi')
 
                                 # Convert the timestamp to the user's local time
                                 local_time = convert_to_user_timezone(message.date, user_timezone)
