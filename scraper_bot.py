@@ -663,6 +663,12 @@ async def monitor_channels(event):
                                         "details": []  # Store group and timestamp together
                                     }
 
+                                token_info = get_token_info(contract)
+                                if "error" in token_info:
+                                    continue
+
+                                print(token_info)
+
                                 # Convert the timestamp to the user's local time
                                 local_time = convert_to_user_timezone(message.date, user_timezone)
 
