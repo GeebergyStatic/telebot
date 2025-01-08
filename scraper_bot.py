@@ -164,54 +164,48 @@ async def train_ai_model():
         await asyncio.sleep(86400)  # Train every 24 hours
 
 # Fetch token info (stub for your API call)# This dictionary will store the cached token info for each contract
-cached_token_data = {}
-cache_timestamp = 0  # This will store the timestamp when the cache was last updated
-
-# Function to check if cache needs to be refreshed (every 24 hours)
-def is_cache_expired():
-    global cache_timestamp
-    current_time = time.time()
-    if current_time - cache_timestamp >= 86400:  # 86400 seconds = 24 hours
-        return True
-    return False
-
-# Function to fetch token info, using cache if available and not expired
+# Function to fetch token info without using cache
 def get_token_info(contract_address):
-    global cached_token_data, cache_timestamp
-    
-    # If cache is expired or doesn't contain data for this contract
-    if is_cache_expired() or contract_address not in cached_token_data:
-        try:
-            response = requests.get(f"https://api.dexscreener.io/latest/dex/tokens/{contract_address}")
-            if response.status_code == 200:
-                data = response.json()
-                pairs = data.get("pairs", [])
-                if pairs:
-                    first_pair = pairs[0]
-                    market_cap = first_pair.get("marketCap", 0)
-                    symbol = first_pair.get("baseToken", {}).get("symbol", "Unknown")
-                    price = first_pair.get("priceUsd", 0)
-                    token_info = {
-                        "name": first_pair.get("baseToken", {}).get("name", "Unknown"),
-                        "symbol": symbol,
-                        "price": float(price) if price else 0,
-                        "volume_24h": float(first_pair.get("volume", {}).get("h24", 0)),
-                        "liquidity": float(first_pair.get("liquidity", {}).get("usd", 0)),
-                        "market_cap": float(market_cap),
-                    }
-                    
-                    # Update the cache with the new data
-                    cached_token_data[contract_address] = token_info
-                    cache_timestamp = time.time()  # Update the timestamp when cache was refreshed
-                    
-                    return token_info
+    try:
+        print(f"Fetching token info for contract address: {contract_address}")
+        
+        # Make the API call to fetch the token data
+        response = requests.get(f"https://api.dexscreener.io/latest/dex/tokens/{contract_address}")
+        
+        print(f"Response status code: {response.status_code}")
+        
+        if response.status_code == 200:
+            data = response.json()
+            print(f"API response data: {data}")
+            
+            pairs = data.get("pairs", [])
+            if pairs:
+                first_pair = pairs[0]
+                print(f"First pair data: {first_pair}")
+                
+                market_cap = first_pair.get("marketCap", 0)
+                symbol = first_pair.get("baseToken", {}).get("symbol", "Unknown")
+                price = first_pair.get("priceUsd", 0)
+                
+                token_info = {
+                    "name": first_pair.get("baseToken", {}).get("name", "Unknown"),
+                    "symbol": symbol,
+                    "price": float(price) if price else 0,
+                    "volume_24h": float(first_pair.get("volume", {}).get("h24", 0)),
+                    "liquidity": float(first_pair.get("liquidity", {}).get("usd", 0)),
+                    "market_cap": float(market_cap),
+                }
+                
+                print(f"Fetched token info: {token_info}")
+                return token_info
+            else:
+                print("No pairs found in the API response.")
+        else:
+            print(f"Error: Received HTTP error {response.status_code}")
             return {"error": f"HTTP error {response.status_code}"}
-        except Exception as e:
-            return {"error": f"Error fetching token info: {e}"}
-    else:
-        # Use cached data if available and not expired
-        return cached_token_data.get(contract_address, {"error": "Data not found in cache"})
-    
+    except Exception as e:
+        print(f"Exception occurred: {e}")
+        return {"error": f"Error fetching token info: {e}"}
 
 
 
