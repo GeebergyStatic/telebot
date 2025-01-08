@@ -637,6 +637,7 @@ async def monitor_channels(event):
     # Monitor channels and enqueue contracts
     async def monitor():
         while True:
+            print('hi')
             for channel_url in channels:
                 try:
                     async for message in user_client.iter_messages(channel_url, limit=100):
@@ -708,7 +709,9 @@ async def monitor_channels(event):
             contract_queue.task_done()
 
     # Start monitoring and processing tasks
-    asyncio.create_task(monitor())
+    task = asyncio.create_task(monitor())
+    monitoring_tasks[chat_id] = task
+    asyncio.create_task(train_ai_model())
     asyncio.create_task(process_contracts())
 
 
