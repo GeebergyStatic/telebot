@@ -656,6 +656,7 @@ async def monitor_channels(event):
                                 if "error" in token_info:
                                     continue
 
+                                print(token_info)
                                 features = extract_features(token_info)
                                 advice, probability = evaluate_contract(features)
 
