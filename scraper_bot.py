@@ -602,28 +602,6 @@ async def confirm_remove_channel(event):
 
 
 # Telegram bot monitoring function
-# Telegram bot monitoring function
-# Monitoring function
-# Fetch token info using DexScreener API
-def get_token_info(contract_address):
-    try:
-        response = requests.get(f"https://api.dexscreener.io/latest/dex/tokens/{contract_address}")
-        if response.status_code == 200:
-            data = response.json()
-            pairs = data.get("pairs", [])
-            if pairs:
-                first_pair = pairs[0]
-                return {
-                    "name": first_pair.get("baseToken", {}).get("name", "Unknown"),
-                    "price": float(first_pair.get("priceUsd", 0)),  # Ensure price is numeric
-                    "volume_24h": float(first_pair.get("volume", {}).get("h24", 0)),  # Correct field for 24h volume
-                    "liquidity": float(first_pair.get("liquidity", {}).get("usd", 0)),  # Ensure liquidity is numeric
-                }
-        return {"error": f"HTTP error {response.status_code}"}
-    except Exception as e:
-        return {"error": f"Error fetching token info: {e}"}
-
-# Monitoring function
 # Monitoring function
 
 
