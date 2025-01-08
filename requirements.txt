@@ -47,3 +47,8 @@ wsproto==1.2.0
 yarl==1.18.3
 psycopg2-binary==2.9.7
 pytz==2023.3
+
+# Added for Random Forest classifier and machine learning tasks
+scikit-learn==1.2.0    # For implementing the Random Forest classifier
+pandas==1.5.3          # For data manipulation and processing
+numpy==1.23.5          # For numerical operations, required by scikit-learn
