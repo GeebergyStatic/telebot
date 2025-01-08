@@ -554,7 +554,7 @@ async def monitor_channels(event):
     user_timezone = "UTC"
 
     if not is_user_authenticated(chat_id):
-        await bot.send_message(chat_id, "You need to authenticate first. Use /login to get started.")  
+        await bot.send_message(chat_id, "You need to authenticate first. Use /login to get started.")
         return
 
     session_string = get_session_from_db(chat_id)
@@ -593,57 +593,55 @@ async def monitor_channels(event):
 
                         contracts = re.findall(r"\b[a-zA-Z0-9]{40,}\b", message.text)
                         if contracts:
+                            for contract in contracts:
+                                if contract in seen_contracts[channel_url]:
+                                    continue
 
-                        for contract in contracts:
-                            if contract in seen_contracts[channel_url]:
-                                continue
+                                seen_contracts[channel_url].add(contract)
+                                if contract not in monitored_data:
+                                    monitored_data[contract] = {
+                                        "count": 0,
+                                        "details": []  # Track groups and timestamps
+                                    }
 
-                            seen_contracts[channel_url].add(contract)
-                            if contract not in monitored_data:
-                                monitored_data[contract] = {
-                                    "count": 0,
-                                    "details": []  # Track groups and timestamps
-                                }
+                                token_info = get_token_info(contract)
+                                if "error" in token_info:
+                                    continue
 
-                            token_info = get_token_info(contract)
-                            if "error" in token_info:
-                                continue
+                                features = extract_features(token_info)
+                                advice = evaluate_contract(features)
 
-                            features = extract_features(token_info)
-                            advice = evaluate_contract(features)
+                                save_training_data(features, 1 if token_info.get("volume_24h", 0) > 1e6 else 0)
 
-                            save_training_data(features, 1 if token_info.get("volume_24h", 0) > 1e6 else 0)
+                                local_time = convert_to_user_timezone(message.date, user_timezone)
+                                local_time_str = local_time.strftime('%Y-%m-%d %H:%M:%S')
 
-                            local_time = convert_to_user_timezone(message.date, user_timezone)
-                            local_time_str = local_time.strftime('%Y-%m-%d %H:%M:%S')
+                                monitored_data[contract]["count"] += 1
+                                monitored_data[contract]["details"].append({
+                                    "channel": channel_url,
+                                    "timestamp": local_time_str
+                                })
 
-                            monitored_data[contract]["count"] += 1
-                            monitored_data[contract]["details"].append({
-                                "channel": channel_url,
-                                "timestamp": local_time_str
-                            })
-
-                            details_text = "\n".join(
-                                f"- {detail['channel']} at {detail['timestamp']}"
-                                for detail in monitored_data[contract]["details"]
-                            )
-                            response_text = (
-                                f"Contract: `{contract}`\n"
-                                f"Name: {token_info['name']}\n"
-                                f"Price (USD): {token_info['price']}\n"
-                                f"24h Volume: {token_info['volume_24h']}\n"
-                                f"Liquidity: {token_info['liquidity']}\n"
-                                f"AI Prediction: {advice}\n\n"
-                                f"Detected in the following groups:\n{details_text}"
-                            )
-                            await bot.send_message(chat_id, response_text)
+                                details_text = "\n".join(
+                                    f"- {detail['channel']} at {detail['timestamp']}"
+                                    for detail in monitored_data[contract]["details"]
+                                )
+                                response_text = (
+                                    f"Contract: `{contract}`\n"
+                                    f"Name: {token_info['name']}\n"
+                                    f"Price (USD): {token_info['price']}\n"
+                                    f"24h Volume: {token_info['volume_24h']}\n"
+                                    f"Liquidity: {token_info['liquidity']}\n"
+                                    f"AI Prediction: {advice}\n\n"
+                                    f"Detected in the following groups:\n{details_text}"
+                                )
+                                await bot.send_message(chat_id, response_text)
                 except Exception as e:
                     await bot.send_message(chat_id, f"Error monitoring {channel_url}: {e}")
 
             await asyncio.sleep(10)
 
     asyncio.create_task(monitor())
-
     asyncio.create_task(train_ai_model())
 
 
