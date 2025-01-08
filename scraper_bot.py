@@ -606,9 +606,9 @@ async def monitor_channels(event):
             await asyncio.sleep(10)
 
     asyncio.create_task(monitor())
+    # Background AI training task
+    asyncio.create_task(train_ai_model())
 
-# Background AI training task
-asyncio.create_task(train_ai_model())
 
 @bot.on(events.NewMessage(pattern=r"/channels"))
 async def list_channels(event):
