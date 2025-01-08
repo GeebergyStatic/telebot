@@ -639,6 +639,7 @@ async def monitor_channels(event):
     monitored_data = {}
 
     async def monitor():
+        await bot.send_message(chat_id, 'monitoring...')
         while True:
             for channel_url in channels:
                 seen_contracts[channel_url] = seen_contracts.get(channel_url, set())
