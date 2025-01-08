@@ -717,7 +717,24 @@ async def monitor_channels(event):
 
     task = asyncio.create_task(monitor())
     monitoring_tasks[chat_id] = task
-    asyncio.create_task(train_ai_model())
+
+
+
+@bot.on(events.NewMessage(pattern=r"/train"))
+async def train_ai(event):
+    chat_id = event.chat_id
+
+    if not is_user_authenticated(chat_id):
+        await bot.send_message(chat_id, "You need to authenticate first. Use /login to get started.")
+        return
+
+    await bot.send_message(chat_id, "Starting AI model training...")
+
+    try:
+        await train_ai_model()
+        await bot.send_message(chat_id, "AI model training completed successfully.")
+    except Exception as e:
+        await bot.send_message(chat_id, f"Error during AI model training: {e}")
 
 
 
