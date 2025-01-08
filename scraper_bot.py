@@ -10,7 +10,7 @@ from telethon.errors import RPCError
 import asyncio
 from dotenv import load_dotenv
 import os
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 import psycopg2
 from psycopg2 import sql
 from telethon.tl.functions.channels import JoinChannelRequest
@@ -93,10 +93,35 @@ CREATE TABLE IF NOT EXISTS training_data (
 """
 db_cursor.execute(create_table_query)
 
-# AI model
-ai_model = RandomForestClassifier()
+# Set locale to US format for currency
+locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
 
-# Load training data from PostgreSQL
+# AI Model and Training Data
+ai_model = LogisticRegression()
+training_data = {"features": [], "labels": []}
+
+# Check if the model is trained
+def is_model_trained():
+    return len(training_data["features"]) > 0
+
+# Format currency with dollar sign and commas
+def format_currency(value):
+    """Helper function to format numbers as currency."""
+    return locale.currency(value, grouping=True)
+
+# Save training data (stub for the database save function)
+def save_training_data(features, label):
+    try:
+        # Assuming db_cursor is defined and the database connection is established
+        print("[DEBUG] Saving training data to PostgreSQL...")
+        insert_query = "INSERT INTO training_data (features, label) VALUES (%s, %s)"
+        db_cursor.execute(insert_query, (json.dumps(features), label))
+        conn.commit()
+        print("[DEBUG] Training data saved successfully.")
+    except Exception as e:
+        print(f"[ERROR] Error saving training data: {e}")
+
+# Load training data (stub for the database loading function)
 def load_training_data():
     try:
         print("[DEBUG] Loading training data from PostgreSQL...")
@@ -105,7 +130,6 @@ def load_training_data():
         print(f"[DEBUG] Fetched {len(rows)} rows from training_data.")
         features = [json.loads(row[0]) for row in rows]
         labels = [row[1] for row in rows]
-        print(f"[DEBUG] Extracted features and labels: {len(features)} features, {len(labels)} labels.")
         return {"features": features, "labels": labels}
     except Exception as e:
         print(f"[ERROR] Error loading training data: {e}")
@@ -113,33 +137,20 @@ def load_training_data():
 
 training_data = load_training_data()
 
-# Save training data to PostgreSQL
-def save_training_data(features, label):
-    try:
-        print("[DEBUG] Saving training data to PostgreSQL...")
-        print(f"[DEBUG] Features: {features}, Label: {label}")
-        insert_query = "INSERT INTO training_data (features, label) VALUES (%s, %s)"
-        db_cursor.execute(insert_query, (json.dumps(features), label))
-        print("[DEBUG] Training data saved successfully.")
-    except Exception as e:
-        print(f"[ERROR] Error saving training data: {e}")
-
-# Train AI in the background
+# Train AI model
 async def train_ai_model():
     while True:
         try:
-            print("[DEBUG] Starting AI model training...")
             if training_data["features"]:
-                print(f"[DEBUG] Training on {len(training_data['features'])} feature sets.")
                 ai_model.fit(training_data["features"], training_data["labels"])
-                print("[DEBUG] AI model training complete.")
+                print("[DEBUG] AI model trained successfully.")
             else:
-                print("[WARNING] No training data available for AI training.")
+                print("[WARNING] No training data available.")
         except Exception as e:
-            print(f"[ERROR] Error during AI model training: {e}")
+            print(f"[ERROR] Training AI model failed: {e}")
         await asyncio.sleep(86400)  # Train every 24 hours
 
-# Fetch token info using DexScreener API
+# Fetch token info (stub for your API call)
 def get_token_info(contract_address):
     try:
         response = requests.get(f"https://api.dexscreener.io/latest/dex/tokens/{contract_address}")
@@ -148,48 +159,32 @@ def get_token_info(contract_address):
             pairs = data.get("pairs", [])
             if pairs:
                 first_pair = pairs[0]
+                market_cap = first_pair.get("marketCapUsd", 0)
+                symbol = first_pair.get("baseToken", {}).get("symbol", "Unknown")
                 return {
                     "name": first_pair.get("baseToken", {}).get("name", "Unknown"),
-                    "price": float(first_pair.get("priceUsd", 0)),  # Ensure price is numeric
-                    "volume_24h": float(first_pair.get("volume", {}).get("h24", 0)),  # Correct field for 24h volume
-                    "liquidity": float(first_pair.get("liquidity", {}).get("usd", 0)),  # Ensure liquidity is numeric
+                    "symbol": symbol,
+                    "price": float(first_pair.get("priceUsd", 0)),
+                    "volume_24h": float(first_pair.get("volume", {}).get("h24", 0)),
+                    "liquidity": float(first_pair.get("liquidity", {}).get("usd", 0)),
+                    "market_cap": float(market_cap),
                 }
         return {"error": f"HTTP error {response.status_code}"}
     except Exception as e:
         return {"error": f"Error fetching token info: {e}"}
 
-
-# Evaluate AI prediction
-# Evaluate AI prediction
-def evaluate_contract(features):
-    try:
-        # Ensure the AI model is trained before making predictions
-        if not is_model_trained():
-            return "Not enough training data yet"
-
-        # Use the trained model to predict
-        prediction = ai_model.predict([features])[0]
-        return "High risk" if prediction == 0 else "Low risk"
-    except Exception as e:
-        print(f"[ERROR] Error during contract evaluation: {e}")
-        return "Error during evaluation"
-
-
-
-# Extract features for AI training
-# Extract features for AI training
+# Extract features for AI
 def extract_features(token_info):
     try:
-        # Convert values to floats or use default value of 0 if not possible
         price = float(token_info.get("price", 0)) if is_valid_float(token_info.get("price")) else 0
         volume_24h = float(token_info.get("volume_24h", 0)) if is_valid_float(token_info.get("volume_24h")) else 0
         liquidity = float(token_info.get("liquidity", 0)) if is_valid_float(token_info.get("liquidity")) else 0
-
         return [price, volume_24h, liquidity]
     except Exception as e:
-        print(f"[ERROR] Error during feature extraction: {e}")
-        return [0, 0, 0]  # Fallback to default values
+        print(f"[ERROR] Feature extraction failed: {e}")
+        return [0, 0, 0]
 
+# Check if a value is a valid float
 def is_valid_float(value):
     try:
         float(value)
@@ -197,6 +192,23 @@ def is_valid_float(value):
     except (TypeError, ValueError):
         return False
 
+# Evaluate contract and provide advice along with probability
+def evaluate_contract(features):
+    try:
+        if not is_model_trained():
+            return "Not enough training data yet", 0.0  # No prediction yet
+
+        # Get prediction probability
+        probabilities = ai_model.predict_proba([features])[0]
+        # Probability for class 1 (might pump)
+        probability = probabilities[1]
+
+        # Generate advice based on probability
+        advice = "This token might pump!" if probability >= 0.7 else "This token is high risk."
+        return advice, probability
+    except Exception as e:
+        print(f"[ERROR] Contract evaluation failed: {e}")
+        return "Error during evaluation", 0.0
 
 
 
@@ -569,10 +581,11 @@ def get_token_info(contract_address):
         return {"error": f"Error fetching token info: {e}"}
 
 # Monitoring function
+# Monitoring function
 @bot.on(events.NewMessage(pattern=r"/monitor"))
 async def monitor_channels(event):
     chat_id = event.chat_id
-    user_timezone = "UTC"
+    user_timezone = get_user_timezone(chat_id)
 
     if not is_user_authenticated(chat_id):
         await bot.send_message(chat_id, "You need to authenticate first. Use /login to get started.")
@@ -630,10 +643,7 @@ async def monitor_channels(event):
                                     continue
 
                                 features = extract_features(token_info)
-                                advice = evaluate_contract(features)
-
-                                if advice == "Not enough training data yet":
-                                    print("[DEBUG] Fallback response triggered for contract evaluation.")
+                                advice, probability = evaluate_contract(features)
 
                                 save_training_data(features, 1 if token_info.get("volume_24h", 0) > 1e6 else 0)
 
@@ -646,6 +656,12 @@ async def monitor_channels(event):
                                     "timestamp": local_time_str
                                 })
 
+                                # Format all numerical values as currency
+                                formatted_price = format_currency(token_info.get('price', 0))
+                                formatted_volume = format_currency(token_info.get('volume_24h', 0))
+                                formatted_liquidity = format_currency(token_info.get('liquidity', 0))
+                                formatted_market_cap = format_currency(token_info.get('market_cap', 0))
+
                                 # Only send response if the contract was detected in at least two groups
                                 if monitored_data[contract]["count"] >= 2:
                                     details_text = "\n".join(
@@ -655,10 +671,12 @@ async def monitor_channels(event):
 
                                     response_text = (
                                         f"Contract: `{contract}`\n"
-                                        f"Name: {token_info.get('name', 'Unknown')}\n"
-                                        f"Price (USD): {token_info.get('price', 'N/A')}\n"
-                                        f"24h Volume: {token_info.get('volume_24h', 'N/A')}\n"
-                                        f"Liquidity: {token_info.get('liquidity', 'N/A')}\n"
+                                        f"Symbol: ${token_info.get('symbol', 'N/A')}\n"
+                                        f"Price (USD): {formatted_price}\n"
+                                        f"24h Volume: {formatted_volume}\n"
+                                        f"Liquidity: {formatted_liquidity}\n"
+                                        f"Market Cap (USD): {formatted_market_cap}\n"
+                                        f"Prediction Probability: {probability * 100:.2f}%\n"
                                         f"AI Prediction: {advice}\n\n"
                                         f"Detected {monitored_data[contract]['count']} times across the following groups:\n{details_text}"
                                     )
