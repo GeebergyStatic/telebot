@@ -142,16 +142,12 @@ async def train_ai_model():
 # Fetch token info using DexScreener API
 def get_token_info(contract_address):
     api_url = f"https://api.dexscreener.io/latest/dex/tokens/{contract_address}"
-    print(f"[DEBUG] Fetching token info from URL: {api_url}")
     try:
         response = requests.get(api_url)
-        print(f"[DEBUG] HTTP status code: {response.status_code}")
         if response.status_code == 200:
             data = response.json()
-            print(f"[DEBUG] API response JSON: {data}")
             pairs = data.get("pairs", [])
             if pairs:
-                print(f"[DEBUG] Found pairs: {pairs}")
                 first_pair = pairs[0]
                 token_info = {
                     "name": first_pair.get("baseToken", {}).get("name", "Unknown"),
@@ -159,16 +155,12 @@ def get_token_info(contract_address):
                     "volume_24h": first_pair.get("volume", {}).get("usd24h", "N/A"),
                     "liquidity": first_pair.get("liquidity", {}).get("usd", "N/A"),
                 }
-                print(f"[DEBUG] Extracted token info: {token_info}")
                 return token_info
             else:
-                print(f"[WARNING] No pairs data available for token {contract_address}.")
                 return {"error": "No data available for this token on DexScreener."}
         else:
-            print(f"[ERROR] Non-200 status code received: {response.status_code}")
             return {"error": f"HTTP error {response.status_code}"}
     except Exception as e:
-        print(f"[ERROR] Exception occurred while fetching token info: {e}")
         return {"error": f"Error fetching token info: {e}"}
 
 # Evaluate AI prediction
@@ -198,12 +190,20 @@ def evaluate_contract(features):
 
 
 # Extract features for AI training
+# Extract features for AI training
 def extract_features(token_info):
+    def safe_float(value, default=0.0):
+        """Convert value to float, fallback to default if conversion fails."""
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            return default
+
     try:
         return [
-            float(token_info.get("price", 0)) if token_info.get("price") != "N/A" else 0,
-            float(token_info.get("volume_24h", 0)) if token_info.get("volume_24h") != "N/A" else 0,
-            float(token_info.get("liquidity", 0)) if token_info.get("liquidity") != "N/A" else 0,
+            safe_float(token_info.get("price"), 0) if token_info.get("price") != "N/A" else 0,
+            safe_float(token_info.get("volume_24h"), 0) if token_info.get("volume_24h") != "N/A" else 0,
+            safe_float(token_info.get("liquidity"), 0) if token_info.get("liquidity") != "N/A" else 0,
         ]
     except Exception as e:
         print(f"[ERROR] Error during feature extraction: {e}")
