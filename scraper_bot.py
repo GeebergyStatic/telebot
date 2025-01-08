@@ -604,6 +604,20 @@ async def confirm_remove_channel(event):
 # Telegram bot monitoring function
 # Monitoring function
 
+last_training_time = None
+
+# Function to handle AI model training, only triggering once every 24 hours
+async def train_ai_model_if_due():
+    global last_training_time
+    current_time = time.time()
+    
+    # If 24 hours have passed or if it's the first time training
+    if last_training_time is None or current_time - last_training_time >= 24 * 60 * 60:
+        await train_ai_model()  # Perform the actual training
+        last_training_time = current_time  # Update the last training time
+    else:
+        print("Skipping AI model training as it's been less than 24 hours since the last training.")
+
 
 @bot.on(events.NewMessage(pattern=r"/monitor"))
 async def monitor_channels(event):
@@ -639,7 +653,6 @@ async def monitor_channels(event):
     monitored_data = {}
 
     async def monitor():
-        await bot.send_message(chat_id, 'monitoring...')
         while True:
             for channel_url in channels:
                 seen_contracts[channel_url] = seen_contracts.get(channel_url, set())
@@ -670,7 +683,11 @@ async def monitor_channels(event):
                                 features = extract_features(token_info)
                                 advice, probability = evaluate_contract(features)
 
+                                # Save training data
                                 save_training_data(features, 1 if token_info.get("volume_24h", 0) > 1e6 else 0)
+
+                                # Check if we need to train the AI model (every 24 hours)
+                                await train_ai_model_if_due()
 
                                 local_time = convert_to_user_timezone(message.date, user_timezone)
                                 local_time_str = local_time.strftime('%Y-%m-%d %H:%M:%S')
@@ -721,7 +738,6 @@ async def monitor_channels(event):
 
     task = asyncio.create_task(monitor())
     monitoring_tasks[chat_id] = task
-    asyncio.create_task(train_ai_model())
 
 
 
