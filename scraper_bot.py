@@ -693,16 +693,20 @@ async def handle_user_message(event):
     chat_id = event.chat_id
     message = event.message.text.strip()
 
+    # Ignore messages sent by the bot itself
+    if event.sender_id == bot.uid:  # Check if the sender is the bot itself
+        return
+
     # Ignore bot commands (messages starting with '/')
     if message.startswith('/'):
         return
 
-    # Updated regex to match addresses with at least 40 characters
     wallet_address = None
+
+    # Updated regex to match addresses with at least 40 characters
     if re.match(r"\b[a-zA-Z0-9]{40,}\b", message):
         wallet_address = message
 
-    # If a valid wallet address is provided
     if wallet_address:
         token_info = get_token_info(wallet_address)
 
@@ -737,7 +741,6 @@ async def handle_user_message(event):
 
         await bot.send_message(chat_id, response_text)
     else:
-        # Only respond once for invalid input
         await bot.send_message(chat_id, "No valid wallet address found. Please send a valid address.")
 
 
