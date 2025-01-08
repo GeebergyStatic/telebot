@@ -17,6 +17,7 @@ from telethon.tl.functions.channels import JoinChannelRequest
 import threading
 import json
 import requests
+import locale
 
 monitoring_tasks = {}
 
