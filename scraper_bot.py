@@ -10,10 +10,12 @@ from telethon.errors import RPCError
 import asyncio
 from dotenv import load_dotenv
 import os
+from sklearn.ensemble import RandomForestClassifier
 import psycopg2
 from psycopg2 import sql
 from telethon.tl.functions.channels import JoinChannelRequest
 import threading
+import json
 
 
 # Load environment variables from the .env file
@@ -78,6 +80,87 @@ CREATE TABLE IF NOT EXISTS user_timezones (
     timezone TEXT NOT NULL
 )
 """)
+
+# Create the training_data table if it doesn't exist
+create_table_query = """
+CREATE TABLE IF NOT EXISTS training_data (
+    id SERIAL PRIMARY KEY,
+    features JSON NOT NULL,
+    label INTEGER NOT NULL
+);
+"""
+db_cursor.execute(create_table_query)
+
+# AI model
+ai_model = RandomForestClassifier()
+
+# Load training data from PostgreSQL
+def load_training_data():
+    try:
+        db_cursor.execute("SELECT features, label FROM training_data")
+        rows = db_cursor.fetchall()
+        features = [json.loads(row[0]) for row in rows]
+        labels = [row[1] for row in rows]
+        return {"features": features, "labels": labels}
+    except Exception as e:
+        print(f"Error loading training data: {e}")
+        return {"features": [], "labels": []}
+
+training_data = load_training_data()
+
+# Save training data to PostgreSQL
+def save_training_data(features, label):
+    try:
+        insert_query = "INSERT INTO training_data (features, label) VALUES (%s, %s)"
+        db_cursor.execute(insert_query, (json.dumps(features), label))
+    except Exception as e:
+        print(f"Error saving training data: {e}")
+
+# Train AI in the background
+async def train_ai_model():
+    while True:
+        if training_data["features"]:
+            ai_model.fit(training_data["features"], training_data["labels"])
+        await asyncio.sleep(86400)  # Train every 24 hours
+
+# Fetch token info using DexScreener API
+def get_token_info(contract_address):
+    api_url = f"https://api.dexscreener.io/latest/dex/tokens/{contract_address}"
+    try:
+        response = requests.get(api_url)
+        if response.status_code == 200:
+            data = response.json()
+            pairs = data.get("pairs", [])
+            if pairs:
+                first_pair = pairs[0]
+                return {
+                    "name": first_pair.get("baseToken", {}).get("name", "Unknown"),
+                    "price": first_pair.get("priceUsd", "N/A"),
+                    "volume_24h": first_pair.get("volume", {}).get("usd24h", "N/A"),
+                    "liquidity": first_pair.get("liquidity", {}).get("usd", "N/A"),
+                }
+        return {"error": "No data available for this token on DexScreener."}
+    except Exception as e:
+        return {"error": f"Error fetching token info: {e}"}
+
+# Evaluate AI prediction
+def evaluate_contract(features):
+    if training_data["features"]:
+        ai_model.fit(training_data["features"], training_data["labels"])
+    prediction = ai_model.predict([features])[0]
+    confidence = ai_model.predict_proba([features])[0]
+    if prediction == 1 and confidence[1] > 0.7:
+        return "High chance of pump within the next 24 hours."
+    else:
+        return "No significant pump expected."
+
+# Extract features for AI training
+def extract_features(token_info):
+    return [
+        token_info.get("price", 0),
+        token_info.get("volume_24h", 0),
+        token_info.get("liquidity", 0),
+    ]
 
 
 # Helper functions
@@ -426,25 +509,22 @@ async def confirm_remove_channel(event):
 
 
 
+# Telegram bot monitoring function
 @bot.on(events.NewMessage(pattern=r"/monitor"))
 async def monitor_channels(event):
     chat_id = event.chat_id
-    user_timezone = get_user_timezone(chat_id)
+    user_timezone = "UTC"
 
-    # If a timezone is set, proceed with monitoring
-    user_timezone = user_timezone or "UTC"  # Default to UTC if no timezone is found
     if not is_user_authenticated(chat_id):
         await bot.send_message(chat_id, "You need to authenticate first. Use /login to get started.")
         return
 
     session_string = get_session_from_db(chat_id)
-    if session_string:
-        session = StringSession(session_string)
-    else:
+    if not session_string:
         await bot.send_message(chat_id, "Session not found. Please authenticate again.")
         return
 
-    user_client = TelegramClient(session, api_id, api_hash)
+    user_client = TelegramClient(StringSession(session_string), api_id, api_hash)
     await user_client.connect()
 
     if not await user_client.is_user_authorized():
@@ -459,68 +539,76 @@ async def monitor_channels(event):
         return
 
     await bot.send_message(chat_id, "Monitoring channels for contract addresses...")
+    seen_contracts = {}
     monitored_data = {}
-
-    # To keep track of already-seen contracts per channel
-    seen_contracts_per_channel = {}
 
     async def monitor():
         while True:
             for channel_url in channels:
-                if channel_url not in seen_contracts_per_channel:
-                    seen_contracts_per_channel[channel_url] = set()  # Initialize for each channel
+                seen_contracts[channel_url] = seen_contracts.get(channel_url, set())
 
                 try:
                     async for message in user_client.iter_messages(channel_url, limit=100):
-                        if message.text:
-                            # Extract sequences of at least 40 alphanumeric characters
-                            contracts = re.findall(r"\b[a-zA-Z0-9]{40,}\b", message.text or "")
-                            for contract in contracts:
-                                # Skip if the contract is already seen in this channel
-                                if contract in seen_contracts_per_channel[channel_url]:
-                                    continue
+                        if not message.text:
+                            continue
 
-                                seen_contracts_per_channel[channel_url].add(contract)  # Mark as seen
+                        contracts = re.findall(r"\b[a-zA-Z0-9]{40,}\b", message.text)
+                        for contract in contracts:
+                            if contract in seen_contracts[channel_url]:
+                                continue
 
-                                if contract not in monitored_data:
-                                    monitored_data[contract] = {
-                                        "count": 0,
-                                        "details": []  # Store group and timestamp together
-                                    }
+                            seen_contracts[channel_url].add(contract)
+                            if contract not in monitored_data:
+                                monitored_data[contract] = {
+                                    "count": 0,
+                                    "details": []  # Track groups and timestamps
+                                }
 
-                                # Convert the timestamp to the user's local time
-                                local_time = convert_to_user_timezone(message.date, user_timezone)
+                            token_info = get_token_info(contract)
 
-                                # Format the local time in the desired format
-                                local_time_str = local_time.strftime('%Y-%m-%d %H:%M:%S')
-                                monitored_data[contract]["count"] += 1
-                                monitored_data[contract]["details"].append({
-                                    "channel": channel_url,
-                                    "timestamp": local_time_str  # Use actual message timestamp
-                                })
+                            if "error" in token_info:
+                                continue
 
-                                # Notify user only if the contract is found in at least two channels
-                                channels_with_contract = {d["channel"] for d in monitored_data[contract]["details"]}
-                                if len(channels_with_contract) >= 2:
-                                    # Ensure exact match sequences are triggering the notification
-                                    details_text = "\n".join(
-                                        f"- {detail['channel']} at {detail['timestamp']}"
-                                        for detail in monitored_data[contract]["details"]
-                                    )
-                                    await bot.send_message(
-                                        chat_id,
-                                        (
-                                            f"Contract `{contract}` detected {monitored_data[contract]['count']} times "
-                                            f"in the following groups:\n{details_text}"
-                                        )
-                                    )
+                            features = extract_features(token_info)
+                            advice = evaluate_contract(features)
+
+                            # Add to training data
+                            save_training_data(features, 1 if token_info.get("volume_24h", 0) > 1e6 else 0)
+
+                            # Convert the timestamp to the user's local time
+                            local_time = convert_to_user_timezone(message.date, user_timezone)
+                            local_time_str = local_time.strftime('%Y-%m-%d %H:%M:%S')
+
+                            monitored_data[contract]["count"] += 1
+                            monitored_data[contract]["details"].append({
+                                "channel": channel_url,
+                                "timestamp": local_time_str
+                            })
+
+                            # Build response with channel details
+                            details_text = "\n".join(
+                                f"- {detail['channel']} at {detail['timestamp']}"
+                                for detail in monitored_data[contract]["details"]
+                            )
+                            response_text = (
+                                f"Contract: `{contract}`\n"
+                                f"Name: {token_info['name']}\n"
+                                f"Price (USD): {token_info['price']}\n"
+                                f"24h Volume: {token_info['volume_24h']}\n"
+                                f"Liquidity: {token_info['liquidity']}\n"
+                                f"AI Prediction: {advice}\n\n"
+                                f"Detected in the following groups:\n{details_text}"
+                            )
+                            await bot.send_message(chat_id, response_text)
                 except Exception as e:
                     await bot.send_message(chat_id, f"Error monitoring {channel_url}: {e}")
 
-            await asyncio.sleep(10)  # Check every 10 seconds
+            await asyncio.sleep(10)
 
     asyncio.create_task(monitor())
 
+# Background AI training task
+asyncio.create_task(train_ai_model())
 
 @bot.on(events.NewMessage(pattern=r"/channels"))
 async def list_channels(event):
