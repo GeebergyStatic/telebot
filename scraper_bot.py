@@ -168,22 +168,18 @@ async def train_ai_model():
 # Function to fetch token info without using cache
 def get_token_info(contract_address):
     try:
-        print(f"Fetching token info for contract address: {contract_address}")
         
         # Make the API call to fetch the token data
         response = requests.get(f"https://api.dexscreener.io/latest/dex/tokens/{contract_address}")
         
-        print(f"Response status code: {response.status_code}")
         
         if response.status_code == 200:
             data = response.json()
-            print(f"API response data: {data}")
             
             # Ensure that 'pairs' is present and not None
             pairs = data.get("pairs")
             if pairs is not None and len(pairs) > 0:
                 first_pair = pairs[0]
-                print(f"First pair data: {first_pair}")
                 
                 market_cap = first_pair.get("marketCap", 0)
                 symbol = first_pair.get("baseToken", {}).get("symbol", "Unknown")
@@ -198,7 +194,6 @@ def get_token_info(contract_address):
                     "market_cap": float(market_cap),
                 }
                 
-                print(f"Fetched token info: {token_info}")
                 return token_info
             else:
                 print("No pairs found or 'pairs' is None in the API response.")
