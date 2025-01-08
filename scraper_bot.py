@@ -126,12 +126,25 @@ def load_training_data():
         db_cursor.execute("SELECT features, label FROM training_data")
         rows = db_cursor.fetchall()
         print(f"[DEBUG] Fetched {len(rows)} rows from training_data.")
-        features = [json.loads(row[0]) for row in rows]
+        
+        # Handle deserialization based on the type of row[0] (features)
+        features = []
+        for row in rows:
+            print(f"Row: {row[0]} | Type of row[0]: {type(row[0])}")
+            if isinstance(row[0], str):
+                # If the feature is a JSON string, deserialize it
+                features.append(json.loads(row[0]))
+            else:
+                # If it's already a list or dictionary, append it directly
+                features.append(row[0])
+        
         labels = [row[1] for row in rows]
+        
         return {"features": features, "labels": labels}
     except Exception as e:
         print(f"[ERROR] Error loading training data: {e}")
         return {"features": [], "labels": []}
+
 
 training_data = load_training_data()
 
