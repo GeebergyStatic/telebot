@@ -17,7 +17,6 @@ from telethon.tl.functions.channels import JoinChannelRequest
 import threading
 import json
 import requests
-import locale
 
 monitoring_tasks = {}
 
@@ -94,9 +93,7 @@ CREATE TABLE IF NOT EXISTS training_data (
 """
 db_cursor.execute(create_table_query)
 
-# Set locale to US format for currency
-# Set locale to the default one, without forcing UTF-8
-locale.setlocale(locale.LC_ALL, '')
+
 
 # AI Model and Training Data
 ai_model = LogisticRegression()
@@ -107,9 +104,8 @@ def is_model_trained():
     return len(training_data["features"]) > 0
 
 # Format currency with dollar sign and commas
-def format_currency(value):
-    """Helper function to format numbers as currency."""
-    return locale.currency(value, grouping=True)
+def format_currency(amount):
+    return f"${amount:,.2f}"  # Format as currency with commas and two decimals
 
 # Save training data (stub for the database save function)
 def save_training_data(features, label):
