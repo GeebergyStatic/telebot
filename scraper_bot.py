@@ -167,25 +167,30 @@ async def train_ai_model():
 # Fetch token info (stub for your API call)# This dictionary will store the cached token info for each contract
 # Function to fetch token info without using cache
 # Function to fetch token info without using cache
+# Initialize a cache to store token info responses
+token_info_cache = {}
+
 def get_token_info(contract_address):
+    # Check if the token information is already cached
+    if contract_address in token_info_cache:
+        return token_info_cache[contract_address]
+
     try:
-        
         # Make the API call to fetch the token data
         response = requests.get(f"https://api.dexscreener.io/latest/dex/tokens/{contract_address}")
-        
-        
+
         if response.status_code == 200:
             data = response.json()
-            
+
             # Ensure that 'pairs' is present and not None
             pairs = data.get("pairs")
             if pairs is not None and len(pairs) > 0:
                 first_pair = pairs[0]
-                
+
                 market_cap = first_pair.get("marketCap", 0)
                 symbol = first_pair.get("baseToken", {}).get("symbol", "Unknown")
                 price = first_pair.get("priceUsd", 0)
-                
+
                 token_info = {
                     "name": first_pair.get("baseToken", {}).get("name", "Unknown"),
                     "symbol": symbol,
@@ -194,18 +199,22 @@ def get_token_info(contract_address):
                     "liquidity": float(first_pair.get("liquidity", {}).get("usd", 0)),
                     "market_cap": float(market_cap),
                 }
-                
+
+                # Cache the token info before returning
+                token_info_cache[contract_address] = token_info
                 return token_info
             else:
-                print("No pairs found or 'pairs' is None in the API response.")
+                print(f"No pairs found or 'pairs' is None for contract {contract_address}.")
+                token_info_cache[contract_address] = {"error": "No pairs found"}
                 return {"error": "No pairs found in the API response."}
         else:
-            print(f"Error: Received HTTP error {response.status_code}")
+            print(f"Error: Received HTTP error {response.status_code} for contract {contract_address}.")
+            token_info_cache[contract_address] = {"error": f"HTTP error {response.status_code}"}
             return {"error": f"HTTP error {response.status_code}"}
     except Exception as e:
-        print(f"Exception occurred: {e}")
+        print(f"Exception occurred for contract {contract_address}: {e}")
+        token_info_cache[contract_address] = {"error": f"Error fetching token info: {e}"}
         return {"error": f"Error fetching token info: {e}"}
-
 
 
 # Extract features for AI
@@ -691,7 +700,7 @@ async def monitor_channels(event):
                     formatted_market_cap = format_currency(token_info.get('market_cap', 0))
 
                     response_text = (
-                        f"Contract: {contract}\n"
+                        f"Contract: `{contract}`\n"
                         f"Symbol: ${token_info.get('symbol', 'N/A')}\n"
                         f"Price (USD): {formatted_price}\n"
                         f"24h Volume: {formatted_volume}\n"
