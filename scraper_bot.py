@@ -150,9 +150,9 @@ def get_token_info(contract_address):
                 first_pair = pairs[0]
                 return {
                     "name": first_pair.get("baseToken", {}).get("name", "Unknown"),
-                    "price": first_pair.get("priceUsd", "N/A"),
-                    "volume_24h": first_pair.get("volume", {}).get("usd24h", "N/A"),
-                    "liquidity": first_pair.get("liquidity", {}).get("usd", "N/A"),
+                    "price": float(first_pair.get("priceUsd", 0)),  # Ensure price is numeric
+                    "volume_24h": float(first_pair.get("volume", {}).get("h24", 0)),  # Correct field for 24h volume
+                    "liquidity": float(first_pair.get("liquidity", {}).get("usd", 0)),  # Ensure liquidity is numeric
                 }
         return {"error": f"HTTP error {response.status_code}"}
     except Exception as e:
@@ -632,9 +632,9 @@ async def monitor_channels(event):
                                 response_text = (
                                     f"Contract: `{contract}`\n"
                                     f"Name: {token_info['name']}\n"
-                                    f"Price (USD): {token_info['price']}\n"
-                                    f"24h Volume: {token_info['volume_24h']}\n"
-                                    f"Liquidity: {token_info['liquidity']}\n"
+                                    f"Price (USD): {token_info['price', 'N/A']}\n"
+                                    f"24h Volume: {token_info['volume_24h', 'N/A']}\n"
+                                    f"Liquidity: {token_info['liquidity', 'N/A']}\n"
                                     f"AI Prediction: {advice}\n\n"
                                     f"Detected in the following groups:\n{details_text}"
                                 )
