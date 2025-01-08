@@ -95,7 +95,8 @@ CREATE TABLE IF NOT EXISTS training_data (
 db_cursor.execute(create_table_query)
 
 # Set locale to US format for currency
-locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
+# Set locale to the default one, without forcing UTF-8
+locale.setlocale(locale.LC_ALL, '')
 
 # AI Model and Training Data
 ai_model = LogisticRegression()
