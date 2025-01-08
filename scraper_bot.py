@@ -16,6 +16,8 @@ from psycopg2 import sql
 from telethon.tl.functions.channels import JoinChannelRequest
 import threading
 import json
+import requests
+
 
 
 # Load environment variables from the .env file
