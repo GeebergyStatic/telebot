@@ -165,6 +165,7 @@ async def train_ai_model():
 
 # Fetch token info (stub for your API call)# This dictionary will store the cached token info for each contract
 # Function to fetch token info without using cache
+# Function to fetch token info without using cache
 def get_token_info(contract_address):
     try:
         print(f"Fetching token info for contract address: {contract_address}")
@@ -178,8 +179,9 @@ def get_token_info(contract_address):
             data = response.json()
             print(f"API response data: {data}")
             
-            pairs = data.get("pairs", [])
-            if pairs:
+            # Ensure that 'pairs' is present and not None
+            pairs = data.get("pairs")
+            if pairs is not None and len(pairs) > 0:
                 first_pair = pairs[0]
                 print(f"First pair data: {first_pair}")
                 
@@ -199,7 +201,8 @@ def get_token_info(contract_address):
                 print(f"Fetched token info: {token_info}")
                 return token_info
             else:
-                print("No pairs found in the API response.")
+                print("No pairs found or 'pairs' is None in the API response.")
+                return {"error": "No pairs found in the API response."}
         else:
             print(f"Error: Received HTTP error {response.status_code}")
             return {"error": f"HTTP error {response.status_code}"}
