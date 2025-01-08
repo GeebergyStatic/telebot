@@ -548,6 +548,7 @@ async def confirm_remove_channel(event):
 
 # Telegram bot monitoring function
 # Telegram bot monitoring function
+# Monitoring function
 @bot.on(events.NewMessage(pattern=r"/monitor"))
 async def monitor_channels(event):
     chat_id = event.chat_id
@@ -629,16 +630,19 @@ async def monitor_channels(event):
                                     f"- {detail['channel']} at {detail['timestamp']}"
                                     for detail in monitored_data[contract]["details"]
                                 )
+
                                 response_text = (
                                     f"Contract: `{contract}`\n"
-                                    f"Name: {token_info['name']}\n"
-                                    f"Price (USD): {token_info['price', 'N/A']}\n"
-                                    f"24h Volume: {token_info['volume_24h', 'N/A']}\n"
-                                    f"Liquidity: {token_info['liquidity', 'N/A']}\n"
+                                    f"Name: {token_info.get('name', 'Unknown')}\n"
+                                    f"Price (USD): {token_info.get('price', 'N/A')}\n"
+                                    f"24h Volume: {token_info.get('volume_24h', 'N/A')}\n"
+                                    f"Liquidity: {token_info.get('liquidity', 'N/A')}\n"
                                     f"AI Prediction: {advice}\n\n"
                                     f"Detected in the following groups:\n{details_text}"
                                 )
+
                                 await bot.send_message(chat_id, response_text)
+
                 except Exception as e:
                     await bot.send_message(chat_id, f"Error monitoring {channel_url}: {e}")
 
