@@ -170,20 +170,26 @@ def get_token_info(contract_address):
             pairs = data.get("pairs", [])
             if pairs:
                 first_pair = pairs[0]
-                market_cap = first_pair.get("marketCap", 0)  # Adjusted to 'marketCap' instead of 'marketCapUsd'
+
+                # Extract values directly from the first pair
+                market_cap = first_pair.get("marketCap", 0)  # Correct way to access marketCap
                 symbol = first_pair.get("baseToken", {}).get("symbol", "Unknown")
-                price = first_pair.get("priceUsd", 0)  # Check if this is correct (may return None)
+                price = first_pair.get("priceUsd", 0)  # Ensure this is correctly extracted
+                volume_24h = first_pair.get("volume", {}).get("h24", 0)
+                liquidity = first_pair.get("liquidity", {}).get("usd", 0)
+
                 return {
                     "name": first_pair.get("baseToken", {}).get("name", "Unknown"),
                     "symbol": symbol,
-                    "price": float(price) if price else 0,  # Convert to float safely
-                    "volume_24h": float(first_pair.get("volume", {}).get("h24", 0)),
-                    "liquidity": float(first_pair.get("liquidity", {}).get("usd", 0)),
+                    "price": float(price) if price else 0,
+                    "volume_24h": float(volume_24h),
+                    "liquidity": float(liquidity),
                     "market_cap": float(market_cap),
                 }
         return {"error": f"HTTP error {response.status_code}"}
     except Exception as e:
         return {"error": f"Error fetching token info: {e}"}
+
 
 
 # Extract features for AI
