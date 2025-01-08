@@ -549,6 +549,26 @@ async def confirm_remove_channel(event):
 # Telegram bot monitoring function
 # Telegram bot monitoring function
 # Monitoring function
+# Fetch token info using DexScreener API
+def get_token_info(contract_address):
+    try:
+        response = requests.get(f"https://api.dexscreener.io/latest/dex/tokens/{contract_address}")
+        if response.status_code == 200:
+            data = response.json()
+            pairs = data.get("pairs", [])
+            if pairs:
+                first_pair = pairs[0]
+                return {
+                    "name": first_pair.get("baseToken", {}).get("name", "Unknown"),
+                    "price": float(first_pair.get("priceUsd", 0)),  # Ensure price is numeric
+                    "volume_24h": float(first_pair.get("volume", {}).get("h24", 0)),  # Correct field for 24h volume
+                    "liquidity": float(first_pair.get("liquidity", {}).get("usd", 0)),  # Ensure liquidity is numeric
+                }
+        return {"error": f"HTTP error {response.status_code}"}
+    except Exception as e:
+        return {"error": f"Error fetching token info: {e}"}
+
+# Monitoring function
 @bot.on(events.NewMessage(pattern=r"/monitor"))
 async def monitor_channels(event):
     chat_id = event.chat_id
@@ -626,22 +646,24 @@ async def monitor_channels(event):
                                     "timestamp": local_time_str
                                 })
 
-                                details_text = "\n".join(
-                                    f"- {detail['channel']} at {detail['timestamp']}"
-                                    for detail in monitored_data[contract]["details"]
-                                )
+                                # Only send response if the contract was detected in at least two groups
+                                if monitored_data[contract]["count"] >= 2:
+                                    details_text = "\n".join(
+                                        f"- {detail['channel']} at {detail['timestamp']}"
+                                        for detail in monitored_data[contract]["details"]
+                                    )
 
-                                response_text = (
-                                    f"Contract: `{contract}`\n"
-                                    f"Name: {token_info.get('name', 'Unknown')}\n"
-                                    f"Price (USD): {token_info.get('price', 'N/A')}\n"
-                                    f"24h Volume: {token_info.get('volume_24h', 'N/A')}\n"
-                                    f"Liquidity: {token_info.get('liquidity', 'N/A')}\n"
-                                    f"AI Prediction: {advice}\n\n"
-                                    f"Detected in the following groups:\n{details_text}"
-                                )
+                                    response_text = (
+                                        f"Contract: `{contract}`\n"
+                                        f"Name: {token_info.get('name', 'Unknown')}\n"
+                                        f"Price (USD): {token_info.get('price', 'N/A')}\n"
+                                        f"24h Volume: {token_info.get('volume_24h', 'N/A')}\n"
+                                        f"Liquidity: {token_info.get('liquidity', 'N/A')}\n"
+                                        f"AI Prediction: {advice}\n\n"
+                                        f"Detected {monitored_data[contract]['count']} times across the following groups:\n{details_text}"
+                                    )
 
-                                await bot.send_message(chat_id, response_text)
+                                    await bot.send_message(chat_id, response_text)
 
                 except Exception as e:
                     await bot.send_message(chat_id, f"Error monitoring {channel_url}: {e}")
@@ -651,6 +673,7 @@ async def monitor_channels(event):
     task = asyncio.create_task(monitor())
     monitoring_tasks[chat_id] = task
     asyncio.create_task(train_ai_model())
+
 
 
 @bot.on(events.NewMessage(pattern=r"/stop_monitor"))
