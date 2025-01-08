@@ -141,73 +141,62 @@ async def train_ai_model():
 
 # Fetch token info using DexScreener API
 def get_token_info(contract_address):
-    api_url = f"https://api.dexscreener.io/latest/dex/tokens/{contract_address}"
     try:
-        response = requests.get(api_url)
+        response = requests.get(f"https://api.dexscreener.io/latest/dex/tokens/{contract_address}")
         if response.status_code == 200:
             data = response.json()
             pairs = data.get("pairs", [])
             if pairs:
                 first_pair = pairs[0]
-                token_info = {
+                return {
                     "name": first_pair.get("baseToken", {}).get("name", "Unknown"),
                     "price": first_pair.get("priceUsd", "N/A"),
                     "volume_24h": first_pair.get("volume", {}).get("usd24h", "N/A"),
                     "liquidity": first_pair.get("liquidity", {}).get("usd", "N/A"),
                 }
-                return token_info
-            else:
-                return {"error": "No data available for this token on DexScreener."}
-        else:
-            return {"error": f"HTTP error {response.status_code}"}
+        return {"error": f"HTTP error {response.status_code}"}
     except Exception as e:
         return {"error": f"Error fetching token info: {e}"}
+
 
 # Evaluate AI prediction
 # Evaluate AI prediction
 def evaluate_contract(features):
     try:
-        # Check if there is training data
-        if not training_data["features"] or not training_data["labels"]:
+        # Ensure the AI model is trained before making predictions
+        if not is_model_trained():
             return "Not enough training data yet"
 
-        # Train the model if it hasn't been trained
-        if not hasattr(ai_model, "n_classes_"):  # Check if model is fitted
-            ai_model.fit(training_data["features"], training_data["labels"])
-
-        # Make predictions
+        # Use the trained model to predict
         prediction = ai_model.predict([features])[0]
-        confidence = ai_model.predict_proba([features])[0]
-
-        # Return prediction-based advice
-        if prediction == 1 and confidence[1] > 0.7:
-            return "High chance of pump within the next 24 hours."
-        else:
-            return "No significant pump expected."
+        return "High risk" if prediction == 0 else "Low risk"
     except Exception as e:
         print(f"[ERROR] Error during contract evaluation: {e}")
-        return "Error in evaluating contract."
+        return "Error during evaluation"
+
 
 
 # Extract features for AI training
 # Extract features for AI training
 def extract_features(token_info):
-    def safe_float(value, default=0.0):
-        """Convert value to float, fallback to default if conversion fails."""
-        try:
-            return float(value)
-        except (ValueError, TypeError):
-            return default
-
     try:
-        return [
-            safe_float(token_info.get("price"), 0) if token_info.get("price") != "N/A" else 0,
-            safe_float(token_info.get("volume_24h"), 0) if token_info.get("volume_24h") != "N/A" else 0,
-            safe_float(token_info.get("liquidity"), 0) if token_info.get("liquidity") != "N/A" else 0,
-        ]
+        # Convert values to floats or use default value of 0 if not possible
+        price = float(token_info.get("price", 0)) if is_valid_float(token_info.get("price")) else 0
+        volume_24h = float(token_info.get("volume_24h", 0)) if is_valid_float(token_info.get("volume_24h")) else 0
+        liquidity = float(token_info.get("liquidity", 0)) if is_valid_float(token_info.get("liquidity")) else 0
+
+        return [price, volume_24h, liquidity]
     except Exception as e:
         print(f"[ERROR] Error during feature extraction: {e}")
         return [0, 0, 0]  # Fallback to default values
+
+def is_valid_float(value):
+    try:
+        float(value)
+        return True
+    except (TypeError, ValueError):
+        return False
+
 
 
 
