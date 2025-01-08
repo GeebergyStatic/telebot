@@ -18,7 +18,7 @@ import threading
 import json
 import requests
 
-
+monitoring_tasks = {}
 
 # Load environment variables from the .env file
 load_dotenv()
@@ -644,9 +644,21 @@ async def monitor_channels(event):
 
             await asyncio.sleep(10)
 
-    asyncio.create_task(monitor())
+    task = asyncio.create_task(monitor())
+    monitoring_tasks[chat_id] = task
     asyncio.create_task(train_ai_model())
 
+
+@bot.on(events.NewMessage(pattern=r"/stop_monitor"))
+async def stop_monitoring(event):
+    chat_id = event.chat_id
+
+    if chat_id in monitoring_tasks:
+        monitoring_tasks[chat_id].cancel()  # Cancel the monitoring task
+        del monitoring_tasks[chat_id]      # Remove the task from the dictionary
+        await bot.send_message(chat_id, "Monitoring stopped.")
+    else:
+        await bot.send_message(chat_id, "No active monitoring to stop.")
 
 
 @bot.on(events.NewMessage(pattern=r"/channels"))
