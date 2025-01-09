@@ -461,7 +461,7 @@ async def health_check():
     service_health = {'status': 'OK'}
 
     # Check health of another server
-    other_server_url = "https://telebot-1-ah9a.onrender.com/health"
+    other_server_url = "https://bot-f02x.onrender.com/health"
     other_server_health = await check_other_server_health(other_server_url)
     
     return jsonify({
