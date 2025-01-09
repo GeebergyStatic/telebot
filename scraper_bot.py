@@ -133,7 +133,7 @@ def load_training_data():
         # Handle deserialization based on the type of row[0] (features)
         features = []
         for row in rows:
-            print(f"Row: {row[0]} | Type of row[0]: {type(row[0])}")
+            # print(f"Row: {row[0]} | Type of row[0]: {type(row[0])}")
             if isinstance(row[0], str):
                 # If the feature is a JSON string, deserialize it
                 features.append(json.loads(row[0]))
