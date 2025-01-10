@@ -499,7 +499,7 @@ async def send_login_link(event):
     await event.respond(f"Click the link below to authenticate:\n{web_app_url}")
 
 @bot.on(events.NewMessage(pattern=r"/join"))
-async def join_channel(event):
+async def join_channels(event):
     chat_id = event.chat_id
     if not is_user_authenticated(chat_id):
         await event.respond("You need to authenticate first. Use /login to get started.")
@@ -519,28 +519,42 @@ async def join_channel(event):
         await event.respond("Your session has expired. Please reauthenticate.")
         return
 
-    # Send a message to initialize the conversation context
-    await event.respond("Please provide the channel URL to join.")
-    
-    # Use conversation context to wait for the user's response
+    await event.respond(
+        "Please provide the channel URLs to join (separated by commas). Example:\n"
+        "`https://t.me/channel1, https://t.me/channel2`"
+    )
+
     async with bot.conversation(chat_id) as conv:
         try:
-            # Ensure the conversation context is properly initialized
-            message = await conv.wait_event(events.NewMessage())  # Wait for any new message
+            message = await conv.wait_event(events.NewMessage(incoming=True, from_users=chat_id))
+            channel_urls = message.text.strip().split(",")
 
-            # Check if the message is the one we're expecting
-            if message.sender_id == chat_id:
-                channel_url = message.text.strip()
-                # Use JoinChannelRequest to join the channel
-                await user_client(JoinChannelRequest(channel_url))
-                save_channel_to_db(chat_id, channel_url)
-                await event.respond(f"Successfully joined {channel_url}.")
-            else:
-                await event.respond("Invalid message. Please provide the correct channel URL.")
-        except RPCError as e:
-            await event.respond(f"Failed to join channel: {e}")
+            joined_channels = []
+            failed_channels = []
+
+            for channel_url in channel_urls:
+                channel_url = channel_url.strip()
+                if not channel_url:
+                    continue
+                try:
+                    await user_client(JoinChannelRequest(channel_url))
+                    save_channel_to_db(chat_id, channel_url)
+                    joined_channels.append(channel_url)
+                except RPCError as e:
+                    failed_channels.append(f"{channel_url} (Error: {e})")
+
+            response = "Joining results:\n"
+            if joined_channels:
+                response += f"✅ Successfully joined:\n{', '.join(joined_channels)}\n"
+            if failed_channels:
+                response += f"❌ Failed to join:\n{', '.join(failed_channels)}"
+            await event.respond(response)
+
+        except Exception as e:
+            await event.respond(f"An error occurred: {e}")
         finally:
             await user_client.disconnect()
+
 
 
 
