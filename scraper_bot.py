@@ -392,15 +392,20 @@ def create_scraper_bot(api_id, api_hash, bot_token):
     # Get the existing session string from the database
     session_string = get_scraper_bot_session()
 
-    # Initialize session with fallback for invalid or empty values
+    # Initialize session with validation
     if session_string:
         try:
-            session = StringSession(session_string)
-        except ValueError:
-            print("Invalid session string detected. Creating a new session.")
-            session = StringSession()
+            # Validate the existing session with the current API credentials
+            temp_client = TelegramClient(StringSession(session_string), api_id, api_hash)
+            temp_client.start(bot_token=bot_token)
+            temp_client.disconnect()
+            session = StringSession(session_string)  # Reuse the valid session
+            print("Using the existing valid scraper bot session.")
+        except Exception:
+            print("Existing scraper bot session is invalid for the new credentials. Creating a new session.")
+            session = StringSession()  # Create a new session if the existing one is invalid
     else:
-        print("No session found in the database. Creating a new session.")
+        print("No scraper bot session found in the database. Creating a new session.")
         session = StringSession()
 
     # Initialize the scraper bot client
@@ -410,6 +415,7 @@ def create_scraper_bot(api_id, api_hash, bot_token):
     save_scraper_bot_session(scraper_bot.session.save())
 
     return scraper_bot
+
 
 
 # Initialize scraper bot with persistent session
