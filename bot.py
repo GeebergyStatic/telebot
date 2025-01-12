@@ -95,30 +95,33 @@ def get_session_from_db(chat_id):
 def create_bot_client(api_id, api_hash, bot_token):
     # Get the existing session string from the database
     session_string = get_bot_session()
+    session = StringSession(session_string) if session_string else StringSession()
 
-    # Initialize session with validation
-    if session_string:
-        try:
-            # Create a temporary client to validate the session with the new credentials
-            temp_client = TelegramClient(StringSession(session_string), api_id, api_hash)
-            temp_client.start(bot_token=bot_token)
-            temp_client.disconnect()
-            session = StringSession(session_string)  # Reuse the valid session
-            print("Using the existing valid session.")
-        except Exception:
-            print("Existing session is invalid for the new credentials. Creating a new session.")
-            session = StringSession()  # Create a new session if the existing one is invalid
-    else:
-        print("No session found in the database. Creating a new session.")
+    # Initialize a temporary client to validate the session
+    temp_client = TelegramClient(session, api_id, api_hash)
+
+    try:
+        # Start the client using the provided bot token to validate the session
+        temp_client.start(bot_token=bot_token)
+        print("Session is valid and matches the current bot token.")
+    except Exception as e:
+        print(f"Session validation failed: {e}. Creating a new session.")
+        # Clear the invalid session and create a new one
         session = StringSession()
+        save_bot_session(None)  # Clear stored session
 
-    # Initialize the bot client
+    finally:
+        temp_client.disconnect()
+
+    # Initialize the bot client with the validated session
     bot_client = TelegramClient(session, api_id, api_hash).start(bot_token=bot_token)
+    print("Bot client started successfully.")
 
     # Save the session string to the database
     save_bot_session(bot_client.session.save())
 
     return bot_client
+
 
 
 # Example Usage
