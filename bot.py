@@ -267,7 +267,7 @@ async def general_health_check(first_target_url, second_target_url, third_target
         try:
             # Run both health checks concurrently
             await asyncio.gather(
-                # first_health_check(first_target_url),
+                first_health_check(first_target_url),
                 second_health_check(second_target_url),
                 # third_health_check(third_target_url),
                 fourth_health_check(fourth_target_url),
@@ -288,7 +288,7 @@ async def main():
     asyncio.create_task(run_http_server())
 
     # Start the health check tasks concurrently, but ensure they don't interfere with the bot
-    first_server_url = "https://api-proxy-leoa.onrender.com"  # Update to actual address
+    first_server_url = "https://api-proxy-vpex.onrender.com"  # Update to actual address
     second_server_url = "https://backend-auth-vymn.onrender.com"  # Update to actual address
     third_server_url = "https://group-bot-z6jh.onrender.com"  # Update to actual address
     fourth_server_url = "https://meme-scraper-t47l.onrender.com"  # Update to actual address
