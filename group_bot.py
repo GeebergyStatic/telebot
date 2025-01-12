@@ -28,7 +28,7 @@ verify_bot_image_url = 'https://firebasestorage.googleapis.com/v0/b/nexus-fx-inv
 async def on_start(event):
     try:
         # Send the initial message
-        await event.respond("Searching for available airdrops...")
+        await event.respond("Searching for available pre-sales and airdrops...")
         await asyncio.sleep(2)
         await event.respond("Airdrops Found ✅")
 
