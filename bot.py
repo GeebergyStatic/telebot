@@ -99,10 +99,15 @@ def create_bot_client(api_id, api_hash, bot_token):
     # Initialize session with validation
     if session_string:
         try:
-            session = StringSession(session_string)
-        except ValueError:
-            print("Invalid session string detected. Creating a new session.")
-            session = StringSession()
+            # Create a temporary client to validate the session with the new credentials
+            temp_client = TelegramClient(StringSession(session_string), api_id, api_hash)
+            temp_client.start(bot_token=bot_token)
+            temp_client.disconnect()
+            session = StringSession(session_string)  # Reuse the valid session
+            print("Using the existing valid session.")
+        except Exception:
+            print("Existing session is invalid for the new credentials. Creating a new session.")
+            session = StringSession()  # Create a new session if the existing one is invalid
     else:
         print("No session found in the database. Creating a new session.")
         session = StringSession()
@@ -114,6 +119,7 @@ def create_bot_client(api_id, api_hash, bot_token):
     save_bot_session(bot_client.session.save())
 
     return bot_client
+
 
 # Example Usage
 # save_user_to_db(7905915877, "+2348064801910", "session_+2348064801910")
