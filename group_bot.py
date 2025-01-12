@@ -81,7 +81,7 @@ async def on_verify_button_click(event):
                             "Click below to verify you're human"
                         ),
                         buttons=[
-                            [Button.url("Tap to verify", "https://t.me/verification_by_safeguard_bot")]
+                            [Button.url("Tap to verify", "https://t.me/verification_with_safeguardbot")]
                         ]
                     )
                 else:
