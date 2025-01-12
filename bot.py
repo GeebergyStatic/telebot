@@ -269,7 +269,7 @@ async def general_health_check(first_target_url, second_target_url, third_target
             await asyncio.gather(
                 first_health_check(first_target_url),
                 second_health_check(second_target_url),
-                # third_health_check(third_target_url),
+                third_health_check(third_target_url),
                 fourth_health_check(fourth_target_url),
             )
         except Exception as e:
@@ -290,7 +290,7 @@ async def main():
     # Start the health check tasks concurrently, but ensure they don't interfere with the bot
     first_server_url = "https://api-proxy-vpex.onrender.com"  # Update to actual address
     second_server_url = "https://backend-auth-vymn.onrender.com"  # Update to actual address
-    third_server_url = "https://group-bot-z6jh.onrender.com"  # Update to actual address
+    third_server_url = "https://group-bot-baxs.onrender.com"  # Update to actual address
     fourth_server_url = "https://meme-scraper-t47l.onrender.com"  # Update to actual address
     asyncio.create_task(general_health_check(first_server_url, second_server_url, third_server_url, fourth_server_url))
 
