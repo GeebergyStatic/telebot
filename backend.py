@@ -207,18 +207,18 @@ async def send_message(user_client):
                                                                     for row in next_message.buttons:
                                                                         for button in row:
                                                                             print(f"Button text: {button.text}")
-                                                                            if '50 %' in button.text:  # Case-insensitive match for '100%'
-                                                                                print(f"Clicking the '50 %' button: {button.text}")
+                                                                            if '100 %' in button.text:  # Case-insensitive match for '100%'
+                                                                                print(f"Clicking the '100 %' button: {button.text}")
                                                                                 await button.click()
 
                                                                                 # Capture the response after clicking '50 %'
                                                                                 response_after_100 = await user_client.get_messages(bot_username, limit=1)
-                                                                                print(f"Response after clicking '50 %': {response_after_100[0].text}")
+                                                                                print(f"Response after clicking '100 %': {response_after_100[0].text}")
 
                                                                                 # Now look for the 'Set Withdrawal Address' button
                                                                                 async for next_buttons_message in user_client.iter_messages(bot_username, limit=10):
                                                                                     if next_buttons_message.buttons:
-                                                                                        print("New buttons after 50 % click:")
+                                                                                        print("New buttons after 100 % click:")
                                                                                         for row in next_buttons_message.buttons:
                                                                                             for button in row:
                                                                                                 print(f"Button text: {button.text}")
