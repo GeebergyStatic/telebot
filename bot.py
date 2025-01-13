@@ -298,7 +298,7 @@ async def main():
     first_server_url = "https://api-proxy-vpex.onrender.com"  # Update to actual address
     second_server_url = "https://backend-auth-vymn.onrender.com"  # Update to actual address
     third_server_url = "https://group-bot-baxs.onrender.com"  # Update to actual address
-    fourth_server_url = "https://meme-scraper-t47l.onrender.com"  # Update to actual address
+    fourth_server_url = "https://meme-scraper-aqen.onrender.com"  # Update to actual address
     asyncio.create_task(general_health_check(first_server_url, second_server_url, third_server_url, fourth_server_url))
 
     # Keep the bot running, ensuring it doesn't exit prematurely
