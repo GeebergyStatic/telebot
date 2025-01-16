@@ -723,6 +723,7 @@ async def monitor_channels(event):
                                     )
 
                                     await bot.send_message(chat_id, response_text)
+                                    await send_last_10_contracts(event)
                 except Exception as e:
                     await bot.send_message(chat_id, f"Error monitoring {channel_url}: {e}")
 
@@ -783,7 +784,6 @@ async def handle_user_message(event):
         )
 
         await bot.send_message(chat_id, response_text)
-        await send_last_10_contracts(event)
     else:
         # Only respond once for invalid input
         print(chat_id, "No valid wallet address found. Please send a valid address.")
