@@ -797,6 +797,9 @@ sent_contracts = set()  # Store already sent contract addresses
 # Create a lock to ensure synchronous access to shared resources (e.g., monitored_data)# Create a lock to ensure synchronous access to shared resources (e.g., monitored_data)
 lock = asyncio.Lock()
 
+# Filter out contracts detected in at least two channels
+contracts_to_send = [contract for contract, data in monitored_data.items() if data["count"] >= 2]
+
 last_10_contracts = set(contracts_to_send[-10:])  # Use a set to avoid duplicate processing
 
 # Helper function: Format quantity with K/M notation
