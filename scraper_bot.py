@@ -825,6 +825,20 @@ async def send_last_10_contracts(event):
             return f"${value / 1_000:.1f}k"
         return f"${value}"
 
+    def time_ago(timestamp):
+        """Convert a timestamp to a 'Seen: X min/hours ago' format."""
+        now = datetime.now(timezone.utc)
+        elapsed_seconds = (now - timestamp).total_seconds()
+
+        if elapsed_seconds < 60:
+            return f"Seen:\t\t {int(elapsed_seconds)}s ago"
+        elif elapsed_seconds < 3600:
+            return f"Seen:\t\t {int(elapsed_seconds // 60)}m ago"
+        elif elapsed_seconds < 86400:
+            return f"Seen:\t\t {int(elapsed_seconds // 3600)}h ago"
+        else:
+            return f"Seen:\t\t {int(elapsed_seconds // 86400)}d ago"
+
 
     async def send_contracts():
         global sent_contracts
