@@ -783,7 +783,11 @@ async def send_last_10_contracts(event):
         return
 
     def format_quantity(value):
-        return f"{value / 1000:.1f}k" if value >= 1000 else str(value)
+        if value >= 1_000_000:
+            return f"{value / 1_000_000:.2f}m"  # Format in millions
+        elif value >= 1_000:
+            return f"{value / 1_000:.1f}k"  # Format in thousands
+        return str(value)
 
     async def send_contracts():
         global sent_contracts
