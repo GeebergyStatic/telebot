@@ -667,6 +667,9 @@ async def monitor_channels(event):
         return
 
     await safe_send_message(chat_id, "Monitoring channels for contract addresses...")
+
+    # Global tracking of seen contracts across all channels
+    seen_contracts_global = {}
     seen_contracts_per_channel = {}
 
     async def monitor():
@@ -680,10 +683,17 @@ async def monitor_channels(event):
                         if message.text:
                             contracts = re.findall(r"\b[a-zA-Z0-9]{40,}\b", message.text or "")
                             for contract in contracts:
+                                # Skip contract if already processed in this channel
                                 if contract in seen_contracts_per_channel[channel_url]:
                                     continue
 
                                 seen_contracts_per_channel[channel_url].add(contract)
+
+                                # Track contracts globally
+                                if contract not in seen_contracts_global:
+                                    seen_contracts_global[contract] = set()
+                                seen_contracts_global[contract].add(channel_url)
+
                                 if contract not in monitored_data:
                                     monitored_data[contract] = {
                                         "count": 0,
@@ -698,7 +708,8 @@ async def monitor_channels(event):
                                     "timestamp": local_time_str
                                 })
 
-                                if monitored_data[contract]["count"] >= 2:
+                                # Send response only if the contract is detected in more than one channel
+                                if len(seen_contracts_global[contract]) >= 2:
                                     # Save the timestamp in UTC (message.date is already in UTC)
                                     monitored_data[contract]["first_seen"] = message.date  # UTC timestamp
                                     details_text = "\n".join(
@@ -708,7 +719,7 @@ async def monitor_channels(event):
 
                                     response_text = (
                                         f"Contract: `{contract}`\n"
-                                        f"Detected {monitored_data[contract]['count']} times across the following groups:\n{details_text}"
+                                        f"Detected {monitored_data[contract]['count']} times across the following channels:\n{details_text}"
                                     )
 
                                     await bot.send_message(chat_id, response_text)
@@ -720,6 +731,7 @@ async def monitor_channels(event):
     task = asyncio.create_task(monitor())
     monitoring_tasks[chat_id] = task
     asyncio.create_task(train_ai_model())
+
 
 
 # General message handler
