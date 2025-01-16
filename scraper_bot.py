@@ -8,7 +8,7 @@ from flask import Flask, request, jsonify
 from telethon.sessions import StringSession
 from telethon import TelegramClient, events
 from telethon.tl.custom import Button
-from telethon.errors import RPCError
+from telethon.errors import RPCError, FloodWaitError
 import asyncio
 from dotenv import load_dotenv
 import os
@@ -621,6 +621,18 @@ async def confirm_remove_channel(event):
 
 # Telegram bot monitoring function
 # Monitoring function
+
+async def safe_send_message(chat_id, message_text):
+    try:
+        await bot.send_message(chat_id, message_text)
+    except FloodWaitError as e:
+        # Wait for the required time before retrying
+        wait_time = e.seconds
+        print(f"Rate limit hit. Waiting for {wait_time} seconds...")
+        time.sleep(wait_time)
+        await safe_send_message(chat_id, message_text)
+
+
 monitored_data = {}
 
 @bot.on(events.NewMessage(pattern=r"/monitor"))
@@ -654,7 +666,7 @@ async def monitor_channels(event):
         await user_client.disconnect()
         return
 
-    await bot.send_message(chat_id, "Monitoring channels for contract addresses...")
+    await safe_send_message(chat_id, "Monitoring channels for contract addresses...")
     seen_contracts_per_channel = {}
 
     async def monitor():
