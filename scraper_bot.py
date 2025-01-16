@@ -2,7 +2,7 @@ import sqlite3
 import time
 from decimal import Decimal
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 import pytz
 from flask import Flask, request, jsonify
 from telethon.sessions import StringSession
@@ -790,6 +790,20 @@ async def send_last_10_contracts(event):
             return f"${value / 1_000:.1f}k"  # Format in thousands with $
         return f"${value}"  # Add $ for smaller values too
 
+    def time_ago(timestamp):
+        """Convert a timestamp to a 'Seen: X min/hours ago' format."""
+        now = datetime.now(timezone.utc)
+        elapsed_seconds = (now - timestamp).total_seconds()
+
+        if elapsed_seconds < 60:
+            return f"Seen: {int(elapsed_seconds)}s ago"
+        elif elapsed_seconds < 3600:
+            return f"Seen: {int(elapsed_seconds // 60)}m ago"
+        elif elapsed_seconds < 86400:
+            return f"Seen: {int(elapsed_seconds // 3600)}h ago"
+        else:
+            return f"Seen: {int(elapsed_seconds // 86400)}d ago"
+
     async def send_contracts():
         global sent_contracts
 
@@ -810,8 +824,12 @@ async def send_last_10_contracts(event):
             formatted_liquidity = f"**{format_quantity(token_info.get('liquidity', 0))}**"
             formatted_market_cap = f"**{format_quantity(token_info.get('market_cap', 0))}**"
 
+            detected_time = monitored_data[contract]["first_seen"]
+            seen_text = time_ago(detected_time)  # Convert to human-readable format
+
             response_text = (
                 f"📌 **Contract:**\t\t `{contract}`\n"
+                f"🕒 **{seen_text}**\n"  # Add "Seen: X min/hours ago"
                 f"💲 **Symbol:**\t\t ${token_info.get('symbol', 'N/A')}\n"
                 f"💰 **Price (USD):**\t\t {formatted_price}\n"
                 f"📊 **24h Volume:**\t\t {formatted_volume}\n"
