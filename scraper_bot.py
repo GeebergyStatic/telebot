@@ -855,14 +855,18 @@ async def send_last_10_contracts(event):
             await asyncio.sleep(60)  # 60 secs
             await send_contracts()
 
-    # Stop previous task before starting a new one
+    # Stop previous task before starting a new one (if it exists)
     if chat_id in running_tasks:
-        running_tasks[chat_id].cancel()
+        # If the previous task is still running, we should cancel it first
+        if not running_tasks[chat_id].done():
+            running_tasks[chat_id].cancel()
 
     # Start a new scheduled task
     task = asyncio.create_task(schedule_repeating_task())
     running_tasks[chat_id] = task
-    await send_contracts()  # Send the first batch immediately
+
+    # Send the first batch immediately
+    await send_contracts()
 
 
 
