@@ -882,11 +882,12 @@ async def send_last_10_contracts(event):
             
 
     async def schedule_repeating_task():
-        while True:
-            if chat_id in running_tasks and running_tasks[chat_id].cancelled():
-                break  # Stop loop if task is cancelled
-            await asyncio.sleep(60)  # 60 secs
-            await send_contracts()
+        try:
+             while True:
+                if chat_id in running_tasks and running_tasks[chat_id].cancelled():
+                    break  # Stop loop if task is cancelled
+                await asyncio.sleep(60)  # 60 secs
+                await send_contracts()
 
     # Stop previous task before starting a new one
     if chat_id in running_tasks:
@@ -970,6 +971,7 @@ def run_flask():
 # Define the main function to run both Flask and the bot together
 async def run_bot():
     # You can now run your bot
+    print(asyncio.all_tasks())  # Shows all running asyncio tasks
     await bot.run_until_disconnected()
 
 # Run Flask and Bot concurrently
