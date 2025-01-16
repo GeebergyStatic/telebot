@@ -761,6 +761,85 @@ async def handle_user_message(event):
         await bot.send_message(chat_id, "No valid wallet address found. Please send a valid address.")
 
 
+
+running_tasks = {}  # Store running tasks
+
+@bot.on(events.NewMessage(pattern=r"/send_contracts"))
+async def send_last_10_contracts(event):
+    chat_id = event.chat_id  # User who triggered the command
+    channel_username = "@minter_pro_token"  # Replace with your channel's username
+
+    user_timezone = get_user_timezone(chat_id) or "UTC"
+
+    if not is_user_authenticated(chat_id):
+        await bot.send_message(chat_id, "You need to authenticate first. Use /login to get started.")
+        return
+
+    global monitored_data
+    last_10_contracts = list(monitored_data.keys())[-10:] if 'monitored_data' in globals() else []
+    if not last_10_contracts:
+        await bot.send_message(chat_id, "No contract addresses detected yet.")
+        return
+
+    def format_quantity(value):
+        return f"{value / 1000:.1f}k" if value >= 1000 else str(value)
+
+    async def send_contracts():
+        for contract in last_10_contracts:
+            token_info = get_token_info(contract)
+            if "error" in token_info:
+                continue
+
+            features = extract_features(token_info)
+            advice, probability = evaluate_contract(features)
+
+            price = Decimal(token_info.get('price', 0))
+            formatted_price = f"{price:.8f}" if price != price.to_integral_value() else f"{price:.2f}"
+            formatted_volume = format_quantity(token_info.get('volume_24h', 0))
+            formatted_liquidity = format_quantity(token_info.get('liquidity', 0))
+            formatted_market_cap = format_quantity(token_info.get('market_cap', 0))
+
+            response_text = (
+                f"📌 **Contract:** `{contract}`\n"
+                f"💲 **Symbol:** ${token_info.get('symbol', 'N/A')}\n"
+                f"💰 **Price (USD):** {formatted_price}\n"
+                f"📊 **24h Volume:** {formatted_volume}\n"
+                f"💎 **Liquidity:** {formatted_liquidity}\n"
+                f"🏦 **Market Cap:** {formatted_market_cap}\n"
+                f"🤖 **AI Prediction:** {advice} ({probability * 100:.2f}%)\n"
+            )
+
+            await bot.send_message(channel_username, response_text)  # Send to channel
+
+    async def schedule_repeating_task():
+        while True:
+            if chat_id in running_tasks and running_tasks[chat_id].cancelled():
+                break  # Stop loop if task is cancelled
+            await asyncio.sleep(600)  # 10 minutes
+            await send_contracts()
+
+    # Stop previous task before starting a new one
+    if chat_id in running_tasks:
+        running_tasks[chat_id].cancel()
+
+    # Start a new scheduled task
+    task = asyncio.create_task(schedule_repeating_task())
+    running_tasks[chat_id] = task
+    await send_contracts()  # Send the first batch immediately
+
+@bot.on(events.NewMessage(pattern=r"/stop_contracts"))
+async def stop_sending(event):
+    chat_id = event.chat_id
+
+    if chat_id in running_tasks:
+        running_tasks[chat_id].cancel()
+        del running_tasks[chat_id]
+        await bot.send_message(chat_id, "✅ Stopped sending last 10 contracts to the channel.")
+    else:
+        await bot.send_message(chat_id, "⚠️ No active task found.")
+
+
+
 @bot.on(events.NewMessage(pattern=r"/train"))
 async def train_ai(event):
     chat_id = event.chat_id
