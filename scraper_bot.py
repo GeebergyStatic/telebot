@@ -794,7 +794,7 @@ running_tasks = {}  # Store running tasks
 
 sent_contracts = set()  # Store already sent contract addresses
 
-# Create a lock to ensure synchronous access to shared resources (e.g., monitored_data)
+# Create a lock to ensure synchronous access to shared resources (e.g., monitored_data)# Create a lock to ensure synchronous access to shared resources (e.g., monitored_data)
 lock = asyncio.Lock()
 
 @bot.on(events.NewMessage(pattern=r"/send_contracts"))
@@ -817,83 +817,59 @@ async def send_last_10_contracts(event):
 
     last_10_contracts = contracts_to_send[-10:]  # Get the last 10 contracts
 
-    def format_quantity(value):
-        if value >= 1_000_000:
-            return f"${value / 1_000_000:.2f}m"  # Format in millions with $
-        elif value >= 1_000:
-            return f"${value / 1_000:.1f}k"  # Format in thousands with $
-        return f"${value}"  # Add $ for smaller values too
-
-    def time_ago(timestamp):
-        """Convert a timestamp to a 'Seen: X min/hours ago' format."""
-        now = datetime.now(timezone.utc)
-        elapsed_seconds = (now - timestamp).total_seconds()
-
-        if elapsed_seconds < 60:
-            return f"Seen:\t\t {int(elapsed_seconds)}s ago"
-        elif elapsed_seconds < 3600:
-            return f"Seen:\t\t {int(elapsed_seconds // 60)}m ago"
-        elif elapsed_seconds < 86400:
-            return f"Seen:\t\t {int(elapsed_seconds // 3600)}h ago"
-        else:
-            return f"Seen:\t\t {int(elapsed_seconds // 86400)}d ago"
-
     async def send_contracts():
         global sent_contracts
 
-        # Synchronize access to shared resources using the lock
-        async with lock:
-            for contract in last_10_contracts:
-                if contract in sent_contracts:
-                    continue  # Skip if contract was already sent
-
-                token_info = get_token_info(contract)
-                if "error" in token_info:
-                    continue
-
-                features = extract_features(token_info)
-                advice, probability = evaluate_contract(features)
-
-                price = Decimal(token_info.get('price', 0))
-                formatted_price = f"**${f'{price:.8f}' if price != price.to_integral_value() else f'{price:.2f}'}**"
-                formatted_volume = f"**{format_quantity(token_info.get('volume_24h', 0))}**"
-                formatted_liquidity = f"**{format_quantity(token_info.get('liquidity', 0))}**"
-                formatted_market_cap = f"**{format_quantity(token_info.get('market_cap', 0))}**"
-
-                detected_time = monitored_data[contract]["first_seen"]
-                seen_text = time_ago(detected_time)  # Convert to human-readable format
-
-                response_text = (
-                    f"📌 **Contract:**\t\t `{contract}`\n"
-                    f"🕒 **{seen_text}**\n"  # Add "Seen: X min/hours ago"
-                    f"💲 **Symbol:**\t\t ${token_info.get('symbol', 'N/A')}\n"
-                    f"💰 **Price (USD):**\t\t {formatted_price}\n"
-                    f"📊 **24h Volume:**\t\t {formatted_volume}\n"
-                    f"💎 **Liquidity:**\t\t {formatted_liquidity}\n"
-                    f"🏦 **Market Cap:**\t\t {formatted_market_cap}\n"
-                    f"🤖 **AI Prediction:**\t\t {advice} ({probability * 100:.2f}%)\n"
-                )
-
-                await bot.send_message(channel_username, response_text)  # Send to channel
-                sent_contracts.add(contract)  # Mark as sent
-
-    async def schedule_repeating_task():
         while True:
-            await send_contracts()
-            await asyncio.sleep(60)  # 60 secs
+            async with lock:
+                for contract in last_10_contracts:
+                    if contract in sent_contracts:
+                        continue  # Skip if already sent
 
-    # Stop previous task before starting a new one (if it exists)
+                    token_info = get_token_info(contract)
+                    if "error" in token_info:
+                        continue
+
+                    features = extract_features(token_info)
+                    advice, probability = evaluate_contract(features)
+
+                    price = Decimal(token_info.get('price', 0))
+                    formatted_price = f"**${f'{price:.8f}' if price != price.to_integral_value() else f'{price:.2f}'}**"
+                    formatted_volume = f"**{format_quantity(token_info.get('volume_24h', 0))}**"
+                    formatted_liquidity = f"**{format_quantity(token_info.get('liquidity', 0))}**"
+                    formatted_market_cap = f"**{format_quantity(token_info.get('market_cap', 0))}**"
+
+                    detected_time = monitored_data[contract]["first_seen"]
+                    seen_text = time_ago(detected_time)  # Convert to human-readable format
+
+                    response_text = (
+                        f"📌 **Contract:**\t\t `{contract}`\n"
+                        f"🕒 **{seen_text}**\n"  # Add "Seen: X min/hours ago"
+                        f"💲 **Symbol:**\t\t ${token_info.get('symbol', 'N/A')}\n"
+                        f"💰 **Price (USD):**\t\t {formatted_price}\n"
+                        f"📊 **24h Volume:**\t\t {formatted_volume}\n"
+                        f"💎 **Liquidity:**\t\t {formatted_liquidity}\n"
+                        f"🏦 **Market Cap:**\t\t {formatted_market_cap}\n"
+                        f"🤖 **AI Prediction:**\t\t {advice} ({probability * 100:.2f}%)\n"
+                    )
+
+                    await bot.send_message(channel_username, response_text)  # Send to channel
+                    sent_contracts.add(contract)  # Mark as sent
+            
+            await asyncio.sleep(30)  # Sleep inside the function
+
+    # Stop previous task before starting a new one
     if chat_id in running_tasks:
-        # If the previous task is still running, we should cancel it first
         if not running_tasks[chat_id].done():
             running_tasks[chat_id].cancel()
+            try:
+                await running_tasks[chat_id]  # Ensure proper cancellation
+            except asyncio.CancelledError:
+                pass
 
-    # Start a new scheduled task
-    task = asyncio.create_task(schedule_repeating_task())
+    # Start a new scheduled task (directly calling send_contracts)
+    task = asyncio.create_task(send_contracts())
     running_tasks[chat_id] = task
-
-    # Send the first batch immediately
-    await send_contracts()
 
 
 
