@@ -764,6 +764,8 @@ async def handle_user_message(event):
 
 running_tasks = {}  # Store running tasks
 
+sent_contracts = set()  # Store already sent contract addresses
+
 @bot.on(events.NewMessage(pattern=r"/send_contracts"))
 async def send_last_10_contracts(event):
     chat_id = event.chat_id  # User who triggered the command
@@ -784,7 +786,12 @@ async def send_last_10_contracts(event):
         return f"{value / 1000:.1f}k" if value >= 1000 else str(value)
 
     async def send_contracts():
+        global sent_contracts
+
         for contract in last_10_contracts:
+            if contract in sent_contracts:
+                continue  # Skip if contract was already sent
+
             token_info = get_token_info(contract)
             if "error" in token_info:
                 continue
@@ -799,16 +806,17 @@ async def send_last_10_contracts(event):
             formatted_market_cap = f"**{format_quantity(token_info.get('market_cap', 0))}**"
 
             response_text = (
-                f"📌 **Contract:** `{contract}`\n"
-                f"💲 **Symbol:** ${token_info.get('symbol', 'N/A')}\n"
-                f"💰 **Price (USD):** {formatted_price}\n"
-                f"📊 **24h Volume:** {formatted_volume}\n"
-                f"💎 **Liquidity:** {formatted_liquidity}\n"
-                f"🏦 **Market Cap:** {formatted_market_cap}\n"
-                f"🤖 **AI Prediction:** {advice} ({probability * 100:.2f}%)\n"
+                f"📌 **Contract:**\t\t `{contract}`\n"
+                f"💲 **Symbol:**\t\t ${token_info.get('symbol', 'N/A')}\n"
+                f"💰 **Price (USD):**\t\t {formatted_price}\n"
+                f"📊 **24h Volume:**\t\t {formatted_volume}\n"
+                f"💎 **Liquidity:**\t\t {formatted_liquidity}\n"
+                f"🏦 **Market Cap:**\t\t {formatted_market_cap}\n"
+                f"🤖 **AI Prediction:**\t\t {advice} ({probability * 100:.2f}%)\n"
             )
 
             await bot.send_message(channel_username, response_text)  # Send to channel
+            sent_contracts.add(contract)  # Mark as sent
 
     async def schedule_repeating_task():
         while True:
@@ -825,6 +833,7 @@ async def send_last_10_contracts(event):
     task = asyncio.create_task(schedule_repeating_task())
     running_tasks[chat_id] = task
     await send_contracts()  # Send the first batch immediately
+
 
 
 @bot.on(events.NewMessage(pattern=r"/stop_contracts"))
