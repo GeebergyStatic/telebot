@@ -621,6 +621,7 @@ async def confirm_remove_channel(event):
 
 # Telegram bot monitoring function
 # Monitoring function
+monitored_data = {}
 
 @bot.on(events.NewMessage(pattern=r"/monitor"))
 async def monitor_channels(event):
@@ -654,7 +655,6 @@ async def monitor_channels(event):
         return
 
     await bot.send_message(chat_id, "Monitoring channels for contract addresses...")
-    monitored_data = {}
     seen_contracts_per_channel = {}
 
     async def monitor():
@@ -775,7 +775,6 @@ async def send_last_10_contracts(event):
         await bot.send_message(chat_id, "You need to authenticate first. Use /login to get started.")
         return
 
-    global monitored_data
     last_10_contracts = list(monitored_data.keys())[-10:] if 'monitored_data' in globals() else []
     if not last_10_contracts:
         await bot.send_message(chat_id, "No contract addresses detected yet.")
