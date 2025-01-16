@@ -867,7 +867,7 @@ async def send_last_10_contracts(event):
                     seen_text = time_ago(detected_time)
 
                     response_text = (
-                        f"📌 **Contract:** {contract}\n"
+                        f"📌 **Contract:** `{contract}`\n"
                         f"🕒 **{seen_text}**\n"
                         f"💲 **Symbol:** ${token_info.get('symbol', 'N/A')}\n"
                         f"💰 **Price (USD):** {formatted_price}\n"
@@ -880,17 +880,8 @@ async def send_last_10_contracts(event):
                     await bot.send_message(channel_username, response_text)
                     sent_contracts.add(contract)  # Mark contract as sent
             
-            await asyncio.sleep(30)  # Sleep inside the loop
+            await asyncio.sleep(10)  # Sleep inside the loop
 
-
-    # Stop previous task before starting a new one
-    if chat_id in running_tasks:
-        if not running_tasks[chat_id].done():
-            running_tasks[chat_id].cancel()
-            try:
-                await running_tasks[chat_id]  # Ensure proper cancellation
-            except asyncio.CancelledError:
-                pass
 
     # Start a new scheduled task
     task = asyncio.create_task(send_contracts())
