@@ -808,23 +808,33 @@ async def send_last_10_contracts(event):
         await bot.send_message(chat_id, "You need to authenticate first. Use /login to get started.")
         return
 
-    # Filter out contracts that have been detected in at least two channels
+    # Filter out contracts detected in at least two channels
     contracts_to_send = [contract for contract, data in monitored_data.items() if data["count"] >= 2]
 
     if not contracts_to_send:
         await bot.send_message(chat_id, "No contract addresses detected in multiple channels.")
         return
 
-    last_10_contracts = contracts_to_send[-10:]  # Get the last 10 contracts
+    last_10_contracts = set(contracts_to_send[-10:])  # Use a set to avoid duplicate processing
+
+    # Helper function: Format quantity with K/M notation
+    def format_quantity(value):
+        if value >= 1_000_000:
+            return f"${value / 1_000_000:.2f}m"
+        elif value >= 1_000:
+            return f"${value / 1_000:.1f}k"
+        return f"${value}"
+
 
     async def send_contracts():
         global sent_contracts
+        sent_contracts = sent_contracts or set()  # Ensure it's initialized
 
         while True:
             async with lock:
                 for contract in last_10_contracts:
                     if contract in sent_contracts:
-                        continue  # Skip if already sent
+                        continue  # Skip already sent contracts
 
                     token_info = get_token_info(contract)
                     if "error" in token_info:
@@ -840,23 +850,24 @@ async def send_last_10_contracts(event):
                     formatted_market_cap = f"**{format_quantity(token_info.get('market_cap', 0))}**"
 
                     detected_time = monitored_data[contract]["first_seen"]
-                    seen_text = time_ago(detected_time)  # Convert to human-readable format
+                    seen_text = time_ago(detected_time)
 
                     response_text = (
-                        f"📌 **Contract:**\t\t `{contract}`\n"
-                        f"🕒 **{seen_text}**\n"  # Add "Seen: X min/hours ago"
-                        f"💲 **Symbol:**\t\t ${token_info.get('symbol', 'N/A')}\n"
-                        f"💰 **Price (USD):**\t\t {formatted_price}\n"
-                        f"📊 **24h Volume:**\t\t {formatted_volume}\n"
-                        f"💎 **Liquidity:**\t\t {formatted_liquidity}\n"
-                        f"🏦 **Market Cap:**\t\t {formatted_market_cap}\n"
-                        f"🤖 **AI Prediction:**\t\t {advice} ({probability * 100:.2f}%)\n"
+                        f"📌 **Contract:** `{contract}`\n"
+                        f"🕒 **{seen_text}**\n"
+                        f"💲 **Symbol:** ${token_info.get('symbol', 'N/A')}\n"
+                        f"💰 **Price (USD):** {formatted_price}\n"
+                        f"📊 **24h Volume:** {formatted_volume}\n"
+                        f"💎 **Liquidity:** {formatted_liquidity}\n"
+                        f"🏦 **Market Cap:** {formatted_market_cap}\n"
+                        f"🤖 **AI Prediction:** {advice} ({probability * 100:.2f}%)\n"
                     )
 
-                    await bot.send_message(channel_username, response_text)  # Send to channel
-                    sent_contracts.add(contract)  # Mark as sent
+                    await bot.send_message(channel_username, response_text)
+                    sent_contracts.add(contract)  # Mark contract as sent
             
-            await asyncio.sleep(30)  # Sleep inside the function
+            await asyncio.sleep(30)  # Sleep inside the loop
+
 
     # Stop previous task before starting a new one
     if chat_id in running_tasks:
@@ -867,7 +878,7 @@ async def send_last_10_contracts(event):
             except asyncio.CancelledError:
                 pass
 
-    # Start a new scheduled task (directly calling send_contracts)
+    # Start a new scheduled task
     task = asyncio.create_task(send_contracts())
     running_tasks[chat_id] = task
 
