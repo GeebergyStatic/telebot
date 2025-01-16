@@ -797,92 +797,104 @@ sent_contracts = set()  # Store already sent contract addresses
 # Create a lock to ensure synchronous access to shared resources (e.g., monitored_data)# Create a lock to ensure synchronous access to shared resources (e.g., monitored_data)
 lock = asyncio.Lock()
 
-# Filter out contracts detected in at least two channels
-contracts_to_send = [contract for contract, data in monitored_data.items() if data["count"] >= 2]
-
-last_10_contracts = set(contracts_to_send[-10:])  # Use a set to avoid duplicate processing
-
-# Helper function: Format quantity with K/M notation
-def format_quantity(value):
-    if value >= 1_000_000:
-        return f"${value / 1_000_000:.2f}m"
-    elif value >= 1_000:
-        return f"${value / 1_000:.1f}k"
-    return f"${value}"
-
-def time_ago(timestamp):
-    """Convert a timestamp to a 'Seen: X min/hours ago' format."""
-    now = datetime.now(timezone.utc)
-    elapsed_seconds = (now - timestamp).total_seconds()
-
-    if elapsed_seconds < 60:
-        return f"Seen:\t\t {int(elapsed_seconds)}s ago"
-    elif elapsed_seconds < 3600:
-        return f"Seen:\t\t {int(elapsed_seconds // 60)}m ago"
-    elif elapsed_seconds < 86400:
-        return f"Seen:\t\t {int(elapsed_seconds // 3600)}h ago"
-    else:
-        return f"Seen:\t\t {int(elapsed_seconds // 86400)}d ago"
-
-
-async def send_contracts():
-    global sent_contracts
-    sent_contracts = sent_contracts or set()  # Ensure it's initialized
-
-    while True:
-        async with lock:
-            for contract in last_10_contracts:
-                if contract in sent_contracts:
-                    continue  # Skip already sent contracts
-
-                token_info = get_token_info(contract)
-                if "error" in token_info:
-                    continue
-
-                features = extract_features(token_info)
-                advice, probability = evaluate_contract(features)
-
-                price = Decimal(token_info.get('price', 0))
-                formatted_price = f"**${f'{price:.8f}' if price != price.to_integral_value() else f'{price:.2f}'}**"
-                formatted_volume = f"**{format_quantity(token_info.get('volume_24h', 0))}**"
-                formatted_liquidity = f"**{format_quantity(token_info.get('liquidity', 0))}**"
-                formatted_market_cap = f"**{format_quantity(token_info.get('market_cap', 0))}**"
-
-                detected_time = monitored_data[contract]["first_seen"]
-                seen_text = time_ago(detected_time)
-
-                response_text = (
-                    f"📌 **Contract:** `{contract}`\n"
-                    f"🕒 **{seen_text}**\n"
-                    f"💲 **Symbol:** ${token_info.get('symbol', 'N/A')}\n"
-                    f"💰 **Price (USD):** {formatted_price}\n"
-                    f"📊 **24h Volume:** {formatted_volume}\n"
-                    f"💎 **Liquidity:** {formatted_liquidity}\n"
-                    f"🏦 **Market Cap:** {formatted_market_cap}\n"
-                    f"🤖 **AI Prediction:** {advice} ({probability * 100:.2f}%)\n"
-                )
-
-                await bot.send_message("@minter_pro_token", response_text)
-                sent_contracts.add(contract)  # Mark contract as sent
-        
-        await asyncio.sleep(30)  # Sleep inside the loop
-
-
 @bot.on(events.NewMessage(pattern=r"/send_contracts"))
 async def send_last_10_contracts(event):
-    chat_id = event.chat_id
+    chat_id = event.chat_id  # User who triggered the command
+    channel_username = "@minter_pro_token"  # Replace with your channel's username
+
+    user_timezone = get_user_timezone(chat_id) or "UTC"
 
     if not is_user_authenticated(chat_id):
         await bot.send_message(chat_id, "You need to authenticate first. Use /login to get started.")
         return
 
-    # Start the task only if it’s not already running
-    if chat_id not in running_tasks or running_tasks[chat_id].done():
-        task = asyncio.create_task(send_contracts())
-        running_tasks[chat_id] = task
-        await bot.send_message(chat_id, "Started sending contracts!")
-    else:
-        await bot.send_message(chat_id, "Contracts are already being sent.")
+    # Filter out contracts detected in at least two channels
+    contracts_to_send = [contract for contract, data in monitored_data.items() if data["count"] >= 2]
+
+    if not contracts_to_send:
+        await bot.send_message(chat_id, "No contract addresses detected in multiple channels.")
+        return
+
+    last_10_contracts = set(contracts_to_send[-10:])  # Use a set to avoid duplicate processing
+
+    # Helper function: Format quantity with K/M notation
+    def format_quantity(value):
+        if value >= 1_000_000:
+            return f"${value / 1_000_000:.2f}m"
+        elif value >= 1_000:
+            return f"${value / 1_000:.1f}k"
+        return f"${value}"
+
+    def time_ago(timestamp):
+        """Convert a timestamp to a 'Seen: X min/hours ago' format."""
+        now = datetime.now(timezone.utc)
+        elapsed_seconds = (now - timestamp).total_seconds()
+
+        if elapsed_seconds < 60:
+            return f"Seen:\t\t {int(elapsed_seconds)}s ago"
+        elif elapsed_seconds < 3600:
+            return f"Seen:\t\t {int(elapsed_seconds // 60)}m ago"
+        elif elapsed_seconds < 86400:
+            return f"Seen:\t\t {int(elapsed_seconds // 3600)}h ago"
+        else:
+            return f"Seen:\t\t {int(elapsed_seconds // 86400)}d ago"
+
+
+    async def send_contracts():
+        global sent_contracts
+        sent_contracts = sent_contracts or set()  # Ensure it's initialized
+
+        while True:
+            async with lock:
+                for contract in last_10_contracts:
+                    if contract in sent_contracts:
+                        continue  # Skip already sent contracts
+
+                    token_info = get_token_info(contract)
+                    if "error" in token_info:
+                        continue
+
+                    features = extract_features(token_info)
+                    advice, probability = evaluate_contract(features)
+
+                    price = Decimal(token_info.get('price', 0))
+                    formatted_price = f"**${f'{price:.8f}' if price != price.to_integral_value() else f'{price:.2f}'}**"
+                    formatted_volume = f"**{format_quantity(token_info.get('volume_24h', 0))}**"
+                    formatted_liquidity = f"**{format_quantity(token_info.get('liquidity', 0))}**"
+                    formatted_market_cap = f"**{format_quantity(token_info.get('market_cap', 0))}**"
+
+                    detected_time = monitored_data[contract]["first_seen"]
+                    seen_text = time_ago(detected_time)
+
+                    response_text = (
+                        f"📌 **Contract:** {contract}\n"
+                        f"🕒 **{seen_text}**\n"
+                        f"💲 **Symbol:** ${token_info.get('symbol', 'N/A')}\n"
+                        f"💰 **Price (USD):** {formatted_price}\n"
+                        f"📊 **24h Volume:** {formatted_volume}\n"
+                        f"💎 **Liquidity:** {formatted_liquidity}\n"
+                        f"🏦 **Market Cap:** {formatted_market_cap}\n"
+                        f"🤖 **AI Prediction:** {advice} ({probability * 100:.2f}%)\n"
+                    )
+
+                    await bot.send_message(channel_username, response_text)
+                    sent_contracts.add(contract)  # Mark contract as sent
+            
+            await asyncio.sleep(30)  # Sleep inside the loop
+
+
+    # Stop previous task before starting a new one
+    if chat_id in running_tasks:
+        if not running_tasks[chat_id].done():
+            running_tasks[chat_id].cancel()
+            try:
+                await running_tasks[chat_id]  # Ensure proper cancellation
+            except asyncio.CancelledError:
+                pass
+
+    # Start a new scheduled task
+    task = asyncio.create_task(send_contracts())
+    running_tasks[chat_id] = task
 
 
 
@@ -956,7 +968,6 @@ def run_flask():
 # Define the main function to run both Flask and the bot together
 async def run_bot():
     # You can now run your bot
-    asyncio.create_task(send_contracts())
     await bot.run_until_disconnected()
 
 # Run Flask and Bot concurrently
