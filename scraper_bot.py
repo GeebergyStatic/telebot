@@ -723,7 +723,6 @@ async def monitor_channels(event):
                                     )
 
                                     await bot.send_message(chat_id, response_text)
-                                    await send_last_10_contracts(event)
                 except Exception as e:
                     await bot.send_message(chat_id, f"Error monitoring {channel_url}: {e}")
 
@@ -798,6 +797,7 @@ sent_contracts = set()  # Store already sent contract addresses
 # Create a lock to ensure synchronous access to shared resources (e.g., monitored_data)# Create a lock to ensure synchronous access to shared resources (e.g., monitored_data)
 lock = asyncio.Lock()
 
+@bot.on(events.NewMessage(pattern=r"/send_contracts"))
 async def send_last_10_contracts(event):
     chat_id = event.chat_id  # User who triggered the command
     channel_username = "@minter_pro_token"  # Replace with your channel's username
