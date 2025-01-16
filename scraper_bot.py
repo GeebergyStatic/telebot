@@ -675,7 +675,8 @@ async def monitor_channels(event):
                                 if contract not in monitored_data:
                                     monitored_data[contract] = {
                                         "count": 0,
-                                        "details": []
+                                        "details": [],
+                                        "first_seen": message.date  # Add the 'first_seen' field with the message timestamp
                                     }
 
                                 local_time = convert_to_user_timezone(message.date, user_timezone)
@@ -706,6 +707,7 @@ async def monitor_channels(event):
     task = asyncio.create_task(monitor())
     monitoring_tasks[chat_id] = task
     asyncio.create_task(train_ai_model())
+
 
 # General message handler
 @bot.on(events.NewMessage)
