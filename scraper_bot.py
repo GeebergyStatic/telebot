@@ -758,7 +758,7 @@ async def handle_user_message(event):
         await bot.send_message(chat_id, response_text)
     else:
         # Only respond once for invalid input
-        await bot.send_message(chat_id, "No valid wallet address found. Please send a valid address.")
+        # await bot.send_message(chat_id, "No valid wallet address found. Please send a valid address.")
 
 
 
