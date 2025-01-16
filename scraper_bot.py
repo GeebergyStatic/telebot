@@ -886,7 +886,7 @@ async def send_last_10_contracts(event):
              while True:
                 if chat_id in running_tasks and running_tasks[chat_id].cancelled():
                     break  # Stop loop if task is cancelled
-                await asyncio.sleep(60)  # 60 secs
+                await asyncio.sleep(15)  # 15 secs
                 await send_contracts()
 
     # Stop previous task before starting a new one
