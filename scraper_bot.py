@@ -963,10 +963,21 @@ def health_check():
     return jsonify({"status": "Bot is running!"}), 200
 
 
-# Run Flask and Bot
-if __name__ == '__main__':
-    def run_flask():
-        app.run(host='0.0.0.0', port=5000)
+# Define the function to run the Flask server in a separate thread
+def run_flask():
+    app.run(host='0.0.0.0', port=5000)
 
-    threading.Thread(target=run_flask).start()
-    bot.run_until_disconnected()
+# Define the main function to run both Flask and the bot together
+async def run_bot():
+    # You can now run your bot
+    await bot.run_until_disconnected()
+
+# Run Flask and Bot concurrently
+if __name__ == '__main__':
+    # Start Flask server in a separate thread
+    flask_thread = threading.Thread(target=run_flask)
+    flask_thread.start()
+
+    # Create an asyncio event loop to run the bot
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(run_bot())
