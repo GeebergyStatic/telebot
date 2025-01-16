@@ -880,8 +880,6 @@ async def send_last_10_contracts(event):
                     await bot.send_message(channel_username, response_text)
                     sent_contracts.add(contract)  # Mark contract as sent
             
-            await asyncio.sleep(10)  # Sleep inside the loop
-
 
     # Start a new scheduled task
     await send_contracts()
