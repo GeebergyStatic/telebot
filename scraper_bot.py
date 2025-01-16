@@ -675,8 +675,7 @@ async def monitor_channels(event):
                                 if contract not in monitored_data:
                                     monitored_data[contract] = {
                                         "count": 0,
-                                        "details": [],
-                                        "first_seen": None  # Initialize first_seen as None
+                                        "details": []
                                     }
 
                                 local_time = convert_to_user_timezone(message.date, user_timezone)
@@ -687,7 +686,7 @@ async def monitor_channels(event):
                                     "timestamp": local_time_str
                                 })
 
-                                if monitored_data[contract]["count"] >= 2 and monitored_data[contract]["first_seen"] is None:
+                                if monitored_data[contract]["count"] >= 2:
                                     # Save the timestamp in UTC (message.date is already in UTC)
                                     monitored_data[contract]["first_seen"] = message.date  # UTC timestamp
                                     details_text = "\n".join(
