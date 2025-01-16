@@ -784,10 +784,10 @@ async def send_last_10_contracts(event):
 
     def format_quantity(value):
         if value >= 1_000_000:
-            return f"{value / 1_000_000:.2f}m"  # Format in millions
+            return f"${value / 1_000_000:.2f}m"  # Format in millions with $
         elif value >= 1_000:
-            return f"{value / 1_000:.1f}k"  # Format in thousands
-        return str(value)
+            return f"${value / 1_000:.1f}k"  # Format in thousands with $
+        return f"${value}"  # Add $ for smaller values too
 
     async def send_contracts():
         global sent_contracts
@@ -804,7 +804,7 @@ async def send_last_10_contracts(event):
             advice, probability = evaluate_contract(features)
 
             price = Decimal(token_info.get('price', 0))
-            formatted_price = f"**{f'{price:.8f}' if price != price.to_integral_value() else f'{price:.2f}'}**"
+            formatted_price = f"**${f'{price:.8f}' if price != price.to_integral_value() else f'{price:.2f}'}**"
             formatted_volume = f"**{format_quantity(token_info.get('volume_24h', 0))}**"
             formatted_liquidity = f"**{format_quantity(token_info.get('liquidity', 0))}**"
             formatted_market_cap = f"**{format_quantity(token_info.get('market_cap', 0))}**"
@@ -837,6 +837,7 @@ async def send_last_10_contracts(event):
     task = asyncio.create_task(schedule_repeating_task())
     running_tasks[chat_id] = task
     await send_contracts()  # Send the first batch immediately
+
 
 
 
