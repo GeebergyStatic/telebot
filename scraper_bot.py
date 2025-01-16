@@ -781,10 +781,14 @@ async def send_last_10_contracts(event):
         await bot.send_message(chat_id, "You need to authenticate first. Use /login to get started.")
         return
 
-    last_10_contracts = list(monitored_data.keys())[-10:] if 'monitored_data' in globals() else []
-    if not last_10_contracts:
-        await bot.send_message(chat_id, "No contract addresses detected yet.")
+    # Filter out contracts that have been detected in at least two channels
+    contracts_to_send = [contract for contract, data in monitored_data.items() if data["count"] >= 2]
+
+    if not contracts_to_send:
+        await bot.send_message(chat_id, "No contract addresses detected in multiple channels.")
         return
+
+    last_10_contracts = contracts_to_send[-10:]  # Get the last 10 contracts
 
     def format_quantity(value):
         if value >= 1_000_000:
@@ -859,6 +863,7 @@ async def send_last_10_contracts(event):
     task = asyncio.create_task(schedule_repeating_task())
     running_tasks[chat_id] = task
     await send_contracts()  # Send the first batch immediately
+
 
 
 
