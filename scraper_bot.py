@@ -783,6 +783,7 @@ async def handle_user_message(event):
         )
 
         await bot.send_message(chat_id, response_text)
+        await send_last_10_contracts(event)
     else:
         # Only respond once for invalid input
         print(chat_id, "No valid wallet address found. Please send a valid address.")
@@ -797,7 +798,6 @@ sent_contracts = set()  # Store already sent contract addresses
 # Create a lock to ensure synchronous access to shared resources (e.g., monitored_data)# Create a lock to ensure synchronous access to shared resources (e.g., monitored_data)
 lock = asyncio.Lock()
 
-@bot.on(events.NewMessage(pattern=r"/send_contracts"))
 async def send_last_10_contracts(event):
     chat_id = event.chat_id  # User who triggered the command
     channel_username = "@minter_pro_token"  # Replace with your channel's username
@@ -884,8 +884,8 @@ async def send_last_10_contracts(event):
 
 
     # Start a new scheduled task
-    task = asyncio.create_task(send_contracts())
-    running_tasks[chat_id] = task
+    await send_contracts()
+
 
 
 
