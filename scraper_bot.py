@@ -882,12 +882,15 @@ async def send_last_10_contracts(event):
             
 
     async def schedule_repeating_task():
-        try:
-             while True:
-                if chat_id in running_tasks and running_tasks[chat_id].cancelled():
-                    break  # Stop loop if task is cancelled
-                await asyncio.sleep(15)  # 15 secs
-                await send_contracts()
+    try:
+        while True:
+            if chat_id in running_tasks and running_tasks[chat_id].cancelled():
+                break  # Stop loop if task is cancelled
+            await asyncio.sleep(15)  # 15 secs
+            await send_contracts()
+    except Exception as e:
+        print(f"Error in schedule_repeating_task: {e}")
+
 
     # Stop previous task before starting a new one
     if chat_id in running_tasks:
