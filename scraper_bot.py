@@ -793,10 +793,10 @@ async def send_last_10_contracts(event):
             advice, probability = evaluate_contract(features)
 
             price = Decimal(token_info.get('price', 0))
-            formatted_price = f"{price:.8f}" if price != price.to_integral_value() else f"{price:.2f}"
-            formatted_volume = format_quantity(token_info.get('volume_24h', 0))
-            formatted_liquidity = format_quantity(token_info.get('liquidity', 0))
-            formatted_market_cap = format_quantity(token_info.get('market_cap', 0))
+            formatted_price = f"**{f'{price:.8f}' if price != price.to_integral_value() else f'{price:.2f}'}**"
+            formatted_volume = f"**{format_quantity(token_info.get('volume_24h', 0))}**"
+            formatted_liquidity = f"**{format_quantity(token_info.get('liquidity', 0))}**"
+            formatted_market_cap = f"**{format_quantity(token_info.get('market_cap', 0))}**"
 
             response_text = (
                 f"📌 **Contract:** `{contract}`\n"
@@ -814,7 +814,7 @@ async def send_last_10_contracts(event):
         while True:
             if chat_id in running_tasks and running_tasks[chat_id].cancelled():
                 break  # Stop loop if task is cancelled
-            await asyncio.sleep(600)  # 10 minutes
+            await asyncio.sleep(300)  # 5 minutes
             await send_contracts()
 
     # Stop previous task before starting a new one
@@ -825,6 +825,7 @@ async def send_last_10_contracts(event):
     task = asyncio.create_task(schedule_repeating_task())
     running_tasks[chat_id] = task
     await send_contracts()  # Send the first batch immediately
+
 
 @bot.on(events.NewMessage(pattern=r"/stop_contracts"))
 async def stop_sending(event):
