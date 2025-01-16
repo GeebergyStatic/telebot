@@ -796,13 +796,13 @@ async def send_last_10_contracts(event):
         elapsed_seconds = (now - timestamp).total_seconds()
 
         if elapsed_seconds < 60:
-            return f"Seen: {int(elapsed_seconds)}s ago"
+            return f"Seen:\t\t {int(elapsed_seconds)}s ago"
         elif elapsed_seconds < 3600:
-            return f"Seen: {int(elapsed_seconds // 60)}m ago"
+            return f"Seen:\t\t {int(elapsed_seconds // 60)}m ago"
         elif elapsed_seconds < 86400:
-            return f"Seen: {int(elapsed_seconds // 3600)}h ago"
+            return f"Seen:\t\t {int(elapsed_seconds // 3600)}h ago"
         else:
-            return f"Seen: {int(elapsed_seconds // 86400)}d ago"
+            return f"Seen:\t\t {int(elapsed_seconds // 86400)}d ago"
 
     async def send_contracts():
         global sent_contracts
