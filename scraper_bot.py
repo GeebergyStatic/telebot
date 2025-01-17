@@ -845,48 +845,48 @@ async def send_last_10_contracts(event):
         global sent_contracts
         sent_contracts = sent_contracts or set()  # Ensure it's initialized
 
-        while True:
-            print('hi')
-            async with lock:
-                for contract in last_10_contracts:
-                    if contract in sent_contracts:
-                        continue  # Skip already sent contracts
+        print('hi')  # Debugging line to confirm execution
 
-                    token_info = get_token_info(contract)
-                    if "error" in token_info:
-                        continue
+        async with lock:
+            for contract in last_10_contracts:
+                if contract in sent_contracts:
+                    continue  # Skip already sent contracts
 
-                    features = extract_features(token_info)
-                    advice, probability = evaluate_contract(features)
+                token_info = get_token_info(contract)
+                if "error" in token_info:
+                    continue
 
-                    price = Decimal(token_info.get('price', 0))
-                    formatted_price = f"**${f'{price:.8f}' if price != price.to_integral_value() else f'{price:.2f}'}**"
-                    formatted_volume = f"**{format_quantity(token_info.get('volume_24h', 0))}**"
-                    formatted_liquidity = f"**{format_quantity(token_info.get('liquidity', 0))}**"
-                    formatted_market_cap = f"**{format_quantity(token_info.get('market_cap', 0))}**"
+                features = extract_features(token_info)
+                advice, probability = evaluate_contract(features)
 
-                    detected_time = monitored_data[contract]["first_seen"]
-                    seen_text = time_ago(detected_time)
+                price = Decimal(token_info.get('price', 0))
+                formatted_price = f"**${f'{price:.8f}' if price != price.to_integral_value() else f'{price:.2f}'}**"
+                formatted_volume = f"**{format_quantity(token_info.get('volume_24h', 0))}**"
+                formatted_liquidity = f"**{format_quantity(token_info.get('liquidity', 0))}**"
+                formatted_market_cap = f"**{format_quantity(token_info.get('market_cap', 0))}**"
 
-                    response_text = (
-                        f"📌 **Contract:** `{contract}`\n"
-                        f"🕒 **{seen_text}**\n"
-                        f"💲 **Symbol:** ${token_info.get('symbol', 'N/A')}\n"
-                        f"💰 **Price (USD):** {formatted_price}\n"
-                        f"📊 **24h Volume:** {formatted_volume}\n"
-                        f"💎 **Liquidity:** {formatted_liquidity}\n"
-                        f"🏦 **Market Cap:** {formatted_market_cap}\n"
-                        f"🤖 **AI Prediction:** {advice} ({probability * 100:.2f}%)\n"
-                    )
+                detected_time = monitored_data[contract]["first_seen"]
+                seen_text = time_ago(detected_time)
 
-                    await bot.send_message(channel_username, response_text)
-                    sent_contracts.add(contract)  # Mark contract as sent
-            
+                response_text = (
+                    f"📌 **Contract:** `{contract}`\n"
+                    f"🕒 **{seen_text}**\n"
+                    f"💲 **Symbol:** ${token_info.get('symbol', 'N/A')}\n"
+                    f"💰 **Price (USD):** {formatted_price}\n"
+                    f"📊 **24h Volume:** {formatted_volume}\n"
+                    f"💎 **Liquidity:** {formatted_liquidity}\n"
+                    f"🏦 **Market Cap:** {formatted_market_cap}\n"
+                    f"🤖 **AI Prediction:** {advice} ({probability * 100:.2f}%)\n"
+                )
+
+                await bot.send_message(channel_username, response_text)
+                sent_contracts.add(contract)  # Mark contract as sent
+
 
     async def schedule_repeating_task(chat_id):  # Fix: chat_id is now passed
         try:
-            while True:
-                if chat_id in running_tasks and running_tasks[chat_id].cancelled():
+            while chat_id in running_tasks:
+                if running_tasks[chat_id].cancelled():
                     break  # Stop loop if task is cancelled
                 await asyncio.sleep(15)  # 15 secs
                 await send_contracts()
