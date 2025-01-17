@@ -730,7 +730,7 @@ async def monitor_channels(event):
 
     task = asyncio.create_task(monitor())
     monitoring_tasks[chat_id] = task
-    asyncio.create_task(train_ai_model())
+    asyncio.create_task(asyncio.to_thread(train_ai_model))
 
 
 
@@ -959,6 +959,14 @@ async def list_channels(event):
         await event.respond("No channels joined yet. Use /join to add channels.")
     else:
         await event.respond("Joined channels:\n" + "\n".join(channels))
+
+
+async def debug_tasks():
+    while True:
+        print("Currently running tasks:", asyncio.all_tasks())
+        await asyncio.sleep(5)  # Print tasks every 5 seconds
+
+asyncio.create_task(debug_tasks())
 
 
 # Health Check Endpoint
