@@ -295,10 +295,10 @@ async def main():
     asyncio.create_task(run_http_server())
 
     # Start the health check tasks concurrently, but ensure they don't interfere with the bot
-    first_server_url = "https://api-proxy-vpex.onrender.com"  # Update to actual address
-    second_server_url = "https://backend-auth-vymn.onrender.com"  # Update to actual address
-    third_server_url = "https://group-bot-baxs.onrender.com"  # Update to actual address
-    fourth_server_url = "https://meme-scraper-qptl.onrender.com"  # Update to actual address
+    first_server_url = "https://api-proxy-5iic.onrender.com"  # Update to actual address
+    second_server_url = "https://backend-auth-bcv6.onrender.com"  # Update to actual address
+    third_server_url = "https://group-bot-8l89.onrender.com"  # Update to actual address
+    fourth_server_url = "https://meme-scraper-icyr.onrender.com"  # Update to actual address
     asyncio.create_task(general_health_check(first_server_url, second_server_url, third_server_url, fourth_server_url))
 
     # Keep the bot running, ensuring it doesn't exit prematurely
