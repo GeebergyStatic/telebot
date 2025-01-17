@@ -617,6 +617,25 @@ async def confirm_remove_channel(event):
 
 
 
+@bot.on(events.NewMessage(pattern=r"/clear_tasks"))
+async def clear_all_tasks(event):
+    chat_id = event.chat_id  # User who triggered the command
+    
+    if not is_user_authenticated(chat_id):
+        await bot.send_message(chat_id, "You need to authenticate first. Use /login to get started.")
+        return
+    
+    # Clear all running tasks for all users
+    for user_chat_id in list(running_tasks.keys()):
+        task = running_tasks.get(user_chat_id)
+        if task and not task.cancelled():
+            task.cancel()  # Cancel the task
+            print(f"Cancelled task for chat_id: {user_chat_id}")
+    
+    # Clear the running tasks dictionary
+    running_tasks.clear()
+
+    await bot.send_message(chat_id, "All tasks have been cleared.")
 
 
 # Telegram bot monitoring function
