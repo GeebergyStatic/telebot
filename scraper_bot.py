@@ -642,6 +642,13 @@ async def clear_all_tasks(event):
     
     await bot.send_message(chat_id, "All tasks have been cleared.")
 
+    # Gracefully stop the bot if necessary (handling the exception)
+    try:
+        await bot.run_until_disconnected()
+    except asyncio.CancelledError:
+        print("Bot tasks have been cancelled, and the bot is stopping gracefully.")
+
+
 
 
 # Telegram bot monitoring function
