@@ -731,6 +731,7 @@ async def monitor_channels(event):
     task = asyncio.create_task(monitor())
     monitoring_tasks[chat_id] = task
     asyncio.create_task(asyncio.to_thread(train_ai_model))
+    asyncio.create_task(debug_tasks())
 
 
 
@@ -886,6 +887,7 @@ async def send_last_10_contracts(event):
             while True:
                 if chat_id in running_tasks and running_tasks[chat_id].cancelled():
                     break  # Stop loop if task is cancelled
+                asyncio.create_task(debug_tasks())
                 await asyncio.sleep(15)  # 15 secs
                 await send_contracts()
         except Exception as e:
@@ -966,7 +968,6 @@ async def debug_tasks():
         print("Currently running tasks:", asyncio.all_tasks())
         await asyncio.sleep(5)  # Print tasks every 5 seconds
 
-asyncio.create_task(debug_tasks())
 
 
 # Health Check Endpoint
