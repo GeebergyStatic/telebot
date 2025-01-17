@@ -877,7 +877,7 @@ async def send_last_10_contracts(event):
         global sent_contracts
         sent_contracts = sent_contracts or set()  # Ensure it's initialized
 
-        print('hi')  # Debugging line to confirm execution
+        # print('hi') 
 
         async with lock:
             for contract in last_10_contracts:
