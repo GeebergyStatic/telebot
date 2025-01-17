@@ -625,17 +625,23 @@ async def clear_all_tasks(event):
         await bot.send_message(chat_id, "You need to authenticate first. Use /login to get started.")
         return
     
-    # Clear all running tasks for all users
-    for user_chat_id in list(running_tasks.keys()):
-        task = running_tasks.get(user_chat_id)
+    # Clear all running tasks in running_tasks dictionary
+    for task in list(running_tasks.values()):
         if task and not task.cancelled():
             task.cancel()  # Cancel the task
-            print(f"Cancelled task for chat_id: {user_chat_id}")
+            print(f"Cancelled a running task in running_tasks.")
     
     # Clear the running tasks dictionary
     running_tasks.clear()
 
+    # Cancel all other tasks in the event loop (including independent ones)
+    for task in asyncio.all_tasks():
+        if not task.cancelled():
+            task.cancel()
+            print(f"Cancelled an independent task.")
+    
     await bot.send_message(chat_id, "All tasks have been cleared.")
+
 
 
 # Telegram bot monitoring function
@@ -828,14 +834,6 @@ async def send_last_10_contracts(event):
         await bot.send_message(chat_id, "You need to authenticate first. Use /login to get started.")
         return
 
-    # Filter out contracts detected in at least two channels
-    contracts_to_send = [contract for contract, data in monitored_data.items() if data["count"] >= 2]
-
-    if not contracts_to_send:
-        await bot.send_message(chat_id, "No contract addresses detected in multiple channels.")
-        return
-
-    last_10_contracts = set(contracts_to_send[-10:])  # Use a set to avoid duplicate processing
 
     # Helper function: Format quantity with K/M notation
     def format_quantity(value):
@@ -861,6 +859,14 @@ async def send_last_10_contracts(event):
 
 
     async def send_contracts():
+        # Filter out contracts detected in at least two channels
+        contracts_to_send = [contract for contract, data in monitored_data.items() if data["count"] >= 2]
+
+        if not contracts_to_send:
+            await bot.send_message(chat_id, "No contract addresses detected in multiple channels.")
+            return
+
+        last_10_contracts = set(contracts_to_send[-10:])  # Use a set to avoid duplicate processing
         global sent_contracts
         sent_contracts = sent_contracts or set()  # Ensure it's initialized
 
