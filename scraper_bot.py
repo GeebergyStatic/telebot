@@ -730,7 +730,7 @@ async def monitor_channels(event):
 
     task = asyncio.create_task(monitor())
     monitoring_tasks[chat_id] = task
-    asyncio.create_task(asyncio.to_thread(train_ai_model))
+    asyncio.create_task(train_ai_model())
     # asyncio.create_task(debug_tasks())
 
 
