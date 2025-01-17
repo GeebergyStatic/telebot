@@ -924,7 +924,7 @@ async def send_last_10_contracts(event):
 
     # Start a new scheduled task
     task = asyncio.create_task(schedule_repeating_task(chat_id))  # Fix: passing chat_id
-    asyncio.create_task(debug_tasks())
+    # asyncio.create_task(debug_tasks())
     running_tasks[chat_id] = task
     await send_contracts()  # Send the first batch immediately
 
