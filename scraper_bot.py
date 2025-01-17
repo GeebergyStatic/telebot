@@ -731,7 +731,7 @@ async def monitor_channels(event):
     task = asyncio.create_task(monitor())
     monitoring_tasks[chat_id] = task
     asyncio.create_task(asyncio.to_thread(train_ai_model))
-    asyncio.create_task(debug_tasks())
+    # asyncio.create_task(debug_tasks())
 
 
 
@@ -846,6 +846,7 @@ async def send_last_10_contracts(event):
         sent_contracts = sent_contracts or set()  # Ensure it's initialized
 
         while True:
+            print('hi')
             async with lock:
                 for contract in last_10_contracts:
                     if contract in sent_contracts:
