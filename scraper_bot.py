@@ -823,11 +823,20 @@ async def handle_user_message(event):
                 formatted_initial_market_cap = format_currency(initial_market_cap)
                 pnl = token_info.get("PNL", "0%")
                 
-                # Adding color-coded box based on PNL value
-                pnl_emoji = "🟩" if Decimal(pnl.strip('%')) > 0 else "🟥"  # Green box for positive, red box for negative
+                # Clean pnl string: remove unwanted characters (e.g., spaces, dollar signs, commas) before parsing
+                cleaned_pnl = pnl.replace('%', '').replace('$', '').replace(',', '').strip()
+
+                try:
+                    pnl_value = Decimal(cleaned_pnl)
+                    # Adding color-coded box based on PNL value
+                    pnl_emoji = "🟩" if pnl_value > 0 else "🟥"  # Green box for positive, red box for negative
+                except InvalidOperation:
+                    pnl_value = Decimal('0')  # Default to 0% if invalid
+                    pnl_emoji = "🟥"  # Red box for invalid or negative values
+                
                 response_text += (
                     f"Initial Market Cap (USD): {formatted_initial_market_cap}\n"
-                    f"PNL: {pnl_emoji} {pnl}\n"
+                    f"PNL: {pnl_emoji} {pnl_value}%\n"
                 )
 
         # Always place AI Prediction at the end
