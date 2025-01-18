@@ -171,12 +171,8 @@ async def train_ai_model():
 token_info_cache = {}
 
 def get_token_info(contract_address):
-    # Check if the token information is already cached
-    if contract_address in token_info_cache:
-        return token_info_cache[contract_address]
-
     try:
-        # Make the API call to fetch the token data
+        # Make the API call to fetch the latest token data
         response = requests.get(f"https://api.dexscreener.io/latest/dex/tokens/{contract_address}")
 
         if response.status_code == 200:
@@ -184,33 +180,43 @@ def get_token_info(contract_address):
 
             # Ensure that 'pairs' is present and not None
             pairs = data.get("pairs")
-            if pairs is not None and len(pairs) > 0:
+            if pairs and len(pairs) > 0:
                 first_pair = pairs[0]
 
-                market_cap = first_pair.get("marketCap", 0)
+                market_cap = float(first_pair.get("marketCap", 0))
                 symbol = first_pair.get("baseToken", {}).get("symbol", "Unknown")
-                price = first_pair.get("priceUsd", 0)
+                price = float(first_pair.get("priceUsd", 0)) if first_pair.get("priceUsd") else 0
 
                 token_info = {
                     "name": first_pair.get("baseToken", {}).get("name", "Unknown"),
                     "symbol": symbol,
-                    "price": float(price) if price else 0,
+                    "price": price,
                     "volume_24h": float(first_pair.get("volume", {}).get("h24", 0)),
                     "liquidity": float(first_pair.get("liquidity", {}).get("usd", 0)),
-                    "market_cap": float(market_cap),
+                    "market_cap": market_cap
                 }
 
-                # Cache the token info before returning
-                token_info_cache[contract_address] = token_info
+                # Only save the initial market cap to the cache
+                if contract_address not in token_info_cache:
+                    token_info_cache[contract_address] = {"market_cap": market_cap}
+
+                # Retrieve the cached market cap for PNL calculation
+                if contract_address in token_info_cache:
+                    initial_market_cap = token_info_cache[contract_address]["market_cap"]
+
+                    # Calculate PNL (Profit & Loss in %)
+                    pnl_percentage = ((market_cap - initial_market_cap) / initial_market_cap) * 100 if initial_market_cap > 0 else 0
+                    pnl_x = f"{(market_cap / initial_market_cap):.2f}x" if market_cap > initial_market_cap else ""
+
+                    token_info["initial_market_cap"] = initial_market_cap
+                    token_info["PNL"] = f"{pnl_percentage:.2f}% {pnl_x}".strip() if pnl_percentage != 0 else "0%"
+
                 return token_info
             else:
-                token_info_cache[contract_address] = {"error": "No pairs found in the API response."}
                 return {"error": "No pairs found in the API response."}
         else:
-            token_info_cache[contract_address] = {"error": f"HTTP error {response.status_code}"}
             return {"error": f"HTTP error {response.status_code}"}
     except Exception as e:
-        token_info_cache[contract_address] = {"error": f"Error fetching token info: {e}"}
         return {"error": f"Error fetching token info: {e}"}
 
 # Extract features for AI
@@ -767,8 +773,7 @@ async def monitor_channels(event):
 
 
 
-# General message handler
-@bot.on(events.NewMessage)
+# General message handler@bot.on(events.NewMessage)
 async def handle_user_message(event):
     chat_id = event.chat_id
     message = event.message.text.strip()
@@ -782,28 +787,23 @@ async def handle_user_message(event):
     if re.match(r"\b[a-zA-Z0-9]{40,}\b", message):
         wallet_address = message
 
-    # If a valid wallet address is provided
     if wallet_address:
         token_info = get_token_info(wallet_address)
 
         if "error" in token_info:
-            # Send the error message only once
-            cached_error = token_info_cache.get(wallet_address)
-            if cached_error and cached_error.get("error") == token_info["error"]:
-                return
             await bot.send_message(chat_id, f"Error retrieving information for address {wallet_address}: {token_info['error']}")
             return
 
-        # Extract and format data
         features = extract_features(token_info)
         advice, probability = evaluate_contract(features)
 
+        # Extract and format data
         price = Decimal(token_info.get('price', 0))
         formatted_price = f"{price:.8f}" if price != price.to_integral_value() else f"{price:.2f}"
         formatted_volume = format_currency(token_info.get('volume_24h', 0))
         formatted_liquidity = format_currency(token_info.get('liquidity', 0))
         formatted_market_cap = format_currency(token_info.get('market_cap', 0))
-
+        
         response_text = (
             f"Contract: `{wallet_address}`\n"
             f"Symbol: ${token_info.get('symbol', 'N/A')}\n"
@@ -811,15 +811,19 @@ async def handle_user_message(event):
             f"24h Volume: {formatted_volume}\n"
             f"Liquidity: {formatted_liquidity}\n"
             f"Market Cap (USD): {formatted_market_cap}\n"
-            f"Prediction Probability: {probability * 100:.2f}%\n"
-            f"AI Prediction: {advice}\n"
+            f"AI Prediction: {advice} ({probability * 100:.2f}%)\n"
         )
 
+        # Only show these fields if the token was previously cached
+        if "initial_market_cap" in token_info:
+            formatted_initial_market_cap = format_currency(token_info.get('initial_market_cap', 0))
+            pnl = token_info.get("PNL", "0%")
+            response_text += (
+                f"Initial Market Cap (USD): {formatted_initial_market_cap}\n"
+                f"PNL: {pnl}\n"
+            )
+
         await bot.send_message(chat_id, response_text)
-    else:
-        # Only respond once for invalid input
-        print(chat_id, "No valid wallet address found. Please send a valid address.")
-        # await bot.send_message(chat_id, "No valid wallet address found. Please send a valid address.")
 
 
 
@@ -833,7 +837,7 @@ lock = asyncio.Lock()
 @bot.on(events.NewMessage(pattern=r"/send_contracts"))
 async def send_last_10_contracts(event):
     chat_id = event.chat_id  # User who triggered the command
-    channel_username = "@minter_pro_token"  # Replace with your channel's username
+    channel_username = "@posner_alpha"  # Replace with your channel's username
 
     user_timezone = get_user_timezone(chat_id) or "UTC"
 
