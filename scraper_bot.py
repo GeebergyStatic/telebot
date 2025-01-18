@@ -209,7 +209,8 @@ def get_token_info(contract_address):
                     pnl_x = f"{(market_cap / initial_market_cap):.2f}x" if market_cap > initial_market_cap else ""
 
                     token_info["initial_market_cap"] = initial_market_cap
-                    token_info["PNL"] = f"{pnl_percentage:.2f}% {pnl_x}".strip() if pnl_percentage != 0 else "0%"
+                    token_info["PNL"] = f"{pnl_percentage:.2f}%".strip() if pnl_percentage != 0 else "0%"
+                    token_info["PNL_X"] = pnl_x
 
                 return token_info
             else:
@@ -822,6 +823,7 @@ async def handle_user_message(event):
             if initial_market_cap != current_market_cap:
                 formatted_initial_market_cap = format_currency(initial_market_cap)
                 pnl = token_info.get("PNL", "0%")
+                pnl_x = token_info.get("PNL_X")
                 
                 # Extract only the numeric PNL percentage before conversion
                 cleaned_pnl = re.search(r"-?\d+\.\d+", pnl)
@@ -842,7 +844,7 @@ async def handle_user_message(event):
                 
                 response_text += (
                     f"Initial Market Cap (USD): {formatted_initial_market_cap}\n"
-                    f"PNL: {pnl_emoji} {pnl_value}%\n"
+                    f"PNL: {pnl_emoji} {pnl_value}% {pnl_x}\n"
                 )
 
         # Always place AI Prediction at the end
