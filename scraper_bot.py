@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 import pytz
 from flask import Flask, request, jsonify
 from telethon.sessions import StringSession
-from telethon import TelegramClient, events
+from telethon import TelegramClient, events, Button
 from telethon.tl.custom import Button
 from telethon.errors import RPCError, FloodWaitError
 import asyncio
@@ -775,6 +775,14 @@ async def monitor_channels(event):
 
 
 # General message
+def format_quantity(value):
+    """Format the quantity for market cap and PNL values."""
+    if value >= 1_000_000:
+        return f"${value / 1_000_000:.2f}m"
+    elif value >= 1_000:
+        return f"${value / 1_000:.1f}k"
+    return f"${value}"
+
 @bot.on(events.NewMessage)
 async def handle_user_message(event):
     chat_id = event.chat_id
@@ -805,7 +813,7 @@ async def handle_user_message(event):
         formatted_volume = format_currency(token_info.get('volume_24h', 0))
         formatted_liquidity = format_currency(token_info.get('liquidity', 0))
         formatted_market_cap = format_currency(token_info.get('market_cap', 0))
-        
+
         response_text = (
             f"Contract: `{wallet_address}`\n"
             f"Symbol: ${token_info.get('symbol', 'N/A')}\n"
@@ -815,6 +823,9 @@ async def handle_user_message(event):
             f"Market Cap (USD): {formatted_market_cap}\n"
         )
 
+        pnl_text = None  # Store formatted PNL for the button
+        buttons = []  # Store buttons if needed
+
         # Only show initial market cap and PNL if they were previously cached and if the market cap has changed
         if "initial_market_cap" in token_info:
             initial_market_cap = token_info.get('initial_market_cap', 0)
@@ -822,35 +833,49 @@ async def handle_user_message(event):
 
             if initial_market_cap != current_market_cap:
                 formatted_initial_market_cap = format_currency(initial_market_cap)
+                formatted_current_market_cap = format_currency(current_market_cap)
                 pnl = token_info.get("PNL", "0%")
                 pnl_x = token_info.get("PNL_X", "")
-                
+
                 # Extract only the numeric PNL percentage before conversion
                 cleaned_pnl = re.search(r"-?\d+\.\d+", pnl)
                 cleaned_pnl = cleaned_pnl.group() if cleaned_pnl else "0"
 
-                # Debugging: Print the cleaned pnl value
-                # print(f"Cleaned PNL: '{cleaned_pnl}' and uncleaned PNL: '{pnl}'")
-
                 try:
                     pnl_value = Decimal(cleaned_pnl)
-                    # Adding color-coded box based on PNL value
-                    pnl_emoji = "🟩" if pnl_value > 0 else "🟥"  # Green box for positive, red box for negative
-                except InvalidOperation as e:
-                    # Debugging: Print the error if Decimal conversion fails
-                    print(f"Error converting PNL '{cleaned_pnl}' to Decimal: {e}")
-                    pnl_value = Decimal('0')  # Default to 0% if invalid
-                    pnl_emoji = "🟥"  # Red box for invalid or negative values
-                
+                    pnl_emoji = "🟩" if pnl_value > 0 else "🟥"
+                except InvalidOperation:
+                    pnl_value = Decimal('0')
+                    pnl_emoji = "🟥"
+
                 response_text += (
                     f"Initial Market Cap (USD): {formatted_initial_market_cap}\n"
                     f"PNL: {pnl_emoji} {pnl_value}% | {pnl_x}\n"
                 )
 
+                # Format PNL for the Copy PNL button with market cap
+                formatted_initial_market_cap_copy = format_quantity(initial_market_cap)
+                formatted_current_market_cap_copy = format_quantity(current_market_cap)
+
+                pnl_text = f"{pnl_emoji} {pnl_value}% | {pnl_x} | {formatted_initial_market_cap_copy} to {formatted_current_market_cap_copy}"
+
+                # Add "Copy PNL" button
+                buttons.append([Button.inline("📋 Copy PNL", data=f"copy_pnl:{pnl_text}")])
+
         # Always place AI Prediction at the end
         response_text += f"AI Prediction: {advice} ({probability * 100:.2f}%)\n"
 
-        await bot.send_message(chat_id, response_text)
+        # Send message with button if PNL exists, otherwise send without buttons
+        if buttons:
+            await bot.send_message(chat_id, response_text, buttons=buttons)
+        else:
+            await bot.send_message(chat_id, response_text)
+
+# Handle "Copy PNL" button click
+@bot.on(events.CallbackQuery(data=re.compile(b"copy_pnl:(.+)")))
+async def copy_pnl(event):
+    pnl_text = event.data_match.group(1).decode()  # Extract PNL text
+    await bot.send_message(event.chat_id, f"🔹 Copied PNL:\n`{pnl_text}`")
 
 
 
