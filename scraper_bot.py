@@ -823,7 +823,7 @@ async def handle_user_message(event):
             if initial_market_cap != current_market_cap:
                 formatted_initial_market_cap = format_currency(initial_market_cap)
                 pnl = token_info.get("PNL", "0%")
-                pnl_x = token_info.get("PNL_X")
+                pnl_x = token_info.get("PNL_X", "")
                 
                 # Extract only the numeric PNL percentage before conversion
                 cleaned_pnl = re.search(r"-?\d+\.\d+", pnl)
