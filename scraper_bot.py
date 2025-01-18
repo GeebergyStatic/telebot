@@ -773,7 +773,7 @@ async def monitor_channels(event):
 
 
 
-# General message handler@bot.on(events.NewMessage)
+# General message
 @bot.on(events.NewMessage)
 async def handle_user_message(event):
     chat_id = event.chat_id
@@ -812,19 +812,29 @@ async def handle_user_message(event):
             f"24h Volume: {formatted_volume}\n"
             f"Liquidity: {formatted_liquidity}\n"
             f"Market Cap (USD): {formatted_market_cap}\n"
-            f"AI Prediction: {advice} ({probability * 100:.2f}%)\n"
         )
 
-        # Only show these fields if the token was previously cached
+        # Only show initial market cap and PNL if they were previously cached and if the market cap has changed
         if "initial_market_cap" in token_info:
-            formatted_initial_market_cap = format_currency(token_info.get('initial_market_cap', 0))
-            pnl = token_info.get("PNL", "0%")
-            response_text += (
-                f"Initial Market Cap (USD): {formatted_initial_market_cap}\n"
-                f"PNL: {pnl}\n"
-            )
+            initial_market_cap = token_info.get('initial_market_cap', 0)
+            current_market_cap = token_info.get('market_cap', 0)
+
+            if initial_market_cap != current_market_cap:
+                formatted_initial_market_cap = format_currency(initial_market_cap)
+                pnl = token_info.get("PNL", "0%")
+                
+                # Adding color-coded box based on PNL value
+                pnl_emoji = "🟩" if Decimal(pnl.strip('%')) > 0 else "🟥"  # Green box for positive, red box for negative
+                response_text += (
+                    f"Initial Market Cap (USD): {formatted_initial_market_cap}\n"
+                    f"PNL: {pnl_emoji} {pnl}\n"
+                )
+
+        # Always place AI Prediction at the end
+        response_text += f"AI Prediction: {advice} ({probability * 100:.2f}%)\n"
 
         await bot.send_message(chat_id, response_text)
+
 
 
 
