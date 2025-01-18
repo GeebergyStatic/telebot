@@ -844,7 +844,7 @@ async def handle_user_message(event):
                 
                 response_text += (
                     f"Initial Market Cap (USD): {formatted_initial_market_cap}\n"
-                    f"PNL: {pnl_emoji} {pnl_value}% {pnl_x}\n"
+                    f"PNL: {pnl_emoji} {pnl_value}% | {pnl_x}\n"
                 )
 
         # Always place AI Prediction at the end
