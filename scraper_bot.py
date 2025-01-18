@@ -1,6 +1,6 @@
 import sqlite3
 import time
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 import re
 from datetime import datetime, timezone
 import pytz
@@ -825,12 +825,17 @@ async def handle_user_message(event):
                 
                 # Clean pnl string: remove unwanted characters (e.g., spaces, dollar signs, commas) before parsing
                 cleaned_pnl = pnl.replace('%', '').replace('$', '').replace(',', '').strip()
+                
+                # Debugging: Print the cleaned pnl value
+                print(f"Cleaned PNL: '{cleaned_pnl}' and uncleaned PNL: '{pnl}'")
 
                 try:
                     pnl_value = Decimal(cleaned_pnl)
                     # Adding color-coded box based on PNL value
                     pnl_emoji = "🟩" if pnl_value > 0 else "🟥"  # Green box for positive, red box for negative
-                except InvalidOperation:
+                except InvalidOperation as e:
+                    # Debugging: Print the error if Decimal conversion fails
+                    print(f"Error converting PNL '{cleaned_pnl}' to Decimal: {e}")
                     pnl_value = Decimal('0')  # Default to 0% if invalid
                     pnl_emoji = "🟥"  # Red box for invalid or negative values
                 
