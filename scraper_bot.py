@@ -774,6 +774,7 @@ async def monitor_channels(event):
 
 
 # General message handler@bot.on(events.NewMessage)
+@bot.on(events.NewMessage)
 async def handle_user_message(event):
     chat_id = event.chat_id
     message = event.message.text.strip()
