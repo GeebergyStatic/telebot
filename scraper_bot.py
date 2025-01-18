@@ -823,11 +823,12 @@ async def handle_user_message(event):
                 formatted_initial_market_cap = format_currency(initial_market_cap)
                 pnl = token_info.get("PNL", "0%")
                 
-                # Clean pnl string: remove unwanted characters (e.g., spaces, dollar signs, commas) before parsing
-                cleaned_pnl = pnl.replace('%', '').replace('$', '').replace(',', '').strip()
-                
+                # Extract only the numeric PNL percentage before conversion
+                cleaned_pnl = re.search(r"-?\d+\.\d+", pnl)
+                cleaned_pnl = cleaned_pnl.group() if cleaned_pnl else "0"
+
                 # Debugging: Print the cleaned pnl value
-                print(f"Cleaned PNL: '{cleaned_pnl}' and uncleaned PNL: '{pnl}'")
+                # print(f"Cleaned PNL: '{cleaned_pnl}' and uncleaned PNL: '{pnl}'")
 
                 try:
                     pnl_value = Decimal(cleaned_pnl)
