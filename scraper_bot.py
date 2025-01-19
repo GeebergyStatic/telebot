@@ -800,8 +800,9 @@ async def handle_user_message(event):
 
     # Check if the message contains a contract address (at least 40 alphanumeric characters)
     wallet_address = None
-    if re.match(r"\b[a-zA-Z0-9]{40,}\b", message):
-        wallet_address = message
+    match = re.search(r"\b[a-zA-Z0-9]{40}\b", message)
+    if match:
+        wallet_address = match.group(0)
 
     if wallet_address:
         # Track the contract if it's new
