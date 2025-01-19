@@ -30,6 +30,7 @@ load_dotenv()
 api_id = os.getenv('API_ID')
 api_hash = os.getenv('API_HASH')
 bot_token = os.getenv('SCRAPER_BOT_TOKEN')
+channel_username = os.getenv('CHANNEL_USERNAME')
 
 # Telegram Bot and Flask App Initialization
 app = Flask(__name__)
@@ -776,6 +777,7 @@ async def monitor_channels(event):
 
 # General message
 # Store last 150 contract addresses with their market cap
+# Store last 150 contract addresses with their market cap
 tracked_contracts = {}  # {wallet_address: {"market_cap": last_market_cap, "message_id": message_id}}
 
 def format_quantity(value):
@@ -829,19 +831,65 @@ async def handle_user_message(event):
         formatted_liquidity = format_currency(token_info.get('liquidity', 0))
         formatted_market_cap = format_currency(token_info.get('market_cap', 0))
 
+        # Message for a token that has additional information (price, liquidity, etc.)
         response_text = (
-            f"Contract: `{wallet_address}`\n"
-            f"Symbol: ${token_info.get('symbol', 'N/A')}\n"
-            f"Price (USD): {formatted_price}\n"
-            f"24h Volume: {formatted_volume}\n"
-            f"Liquidity: {formatted_liquidity}\n"
-            f"Market Cap (USD): {formatted_market_cap}\n"
+            f"📌 **Contract:** `{wallet_address}`\n"
+            f"🕒 **{seen_text}**\n"
+            f"💲 **Symbol:** ${token_info.get('symbol', 'N/A')}\n"
+            f"💰 **Price (USD):** {formatted_price}\n"
+            f"📊 **24h Volume:** {formatted_volume}\n"
+            f"💎 **Liquidity:** {formatted_liquidity}\n"
+            f"🏦 **Market Cap:** {formatted_market_cap}\n"
+            f"🤖 **AI Prediction:** {advice} ({probability * 100:.2f}%)\n"
         )
 
         pnl_text = None  # Store formatted PNL for the button
-        buttons = []  # Store buttons if needed
 
-        # Check 2x Increment logic
+        # Check if the message contains only the contract address (plain contract address)
+        if len(message.split()) == 1 and wallet_address:
+            # Show contract details with the "Copy PNL" button if it is a plain contract address message
+            if "initial_market_cap" in token_info:
+                initial_market_cap = token_info.get('initial_market_cap', 0)
+                current_market_cap = token_info.get('market_cap', 0)
+
+                if initial_market_cap != current_market_cap:
+                    formatted_initial_market_cap = format_currency(initial_market_cap)
+                    formatted_current_market_cap = format_currency(current_market_cap)
+                    pnl = token_info.get("PNL", "0%")
+                    pnl_x = token_info.get("PNL_X", "")
+
+                    # Extract only the numeric PNL percentage before conversion
+                    cleaned_pnl = re.search(r"-?\d+\.\d+", pnl)
+                    cleaned_pnl = cleaned_pnl.group() if cleaned_pnl else "0"
+
+                    try:
+                        pnl_value = Decimal(cleaned_pnl)
+                        pnl_emoji = "🟩" if pnl_value > 0 else "🟥"
+                    except InvalidOperation:
+                        pnl_value = Decimal('0')
+                        pnl_emoji = "🟥"
+
+                    response_text += (
+                        f"Initial Market Cap (USD): {formatted_initial_market_cap}\n"
+                        f"PNL: {pnl_emoji} {pnl_value}% | {pnl_x}\n"
+                    )
+
+                    # Format PNL for the Copy PNL button with market cap
+                    formatted_initial_market_cap_copy = format_quantity(initial_market_cap)
+                    formatted_current_market_cap_copy = format_quantity(current_market_cap)
+
+                    pnl_text = f"{pnl_emoji} {pnl_value}% | {pnl_x} | {formatted_initial_market_cap_copy} to {formatted_current_market_cap_copy}"
+
+                    # Add "Copy PNL" button
+                    buttons = [Button.inline("📋 Copy PNL", data=f"copy_pnl:{pnl_text}")]
+                else:
+                    # If there are no updates to PNL or market cap, just send token details
+                    buttons = []
+
+                # Send the message with the contract info and buttons if applicable
+                await bot.send_message(chat_id, response_text, buttons=buttons)
+
+        # Check 2x Increment logic (message contains contract address along with token info)
         current_market_cap = Decimal(token_info.get("market_cap", 0))
         previous_market_cap = tracked_contracts[wallet_address]["market_cap"]
 
@@ -867,50 +915,6 @@ async def handle_user_message(event):
                 # Update stored market cap
                 tracked_contracts[wallet_address]["market_cap"] = current_market_cap
 
-        # Only show initial market cap and PNL if they were previously cached and if the market cap has changed
-        if "initial_market_cap" in token_info:
-            initial_market_cap = token_info.get('initial_market_cap', 0)
-            current_market_cap = token_info.get('market_cap', 0)
-
-            if initial_market_cap != current_market_cap:
-                formatted_initial_market_cap = format_currency(initial_market_cap)
-                formatted_current_market_cap = format_currency(current_market_cap)
-                pnl = token_info.get("PNL", "0%")
-                pnl_x = token_info.get("PNL_X", "")
-
-                # Extract only the numeric PNL percentage before conversion
-                cleaned_pnl = re.search(r"-?\d+\.\d+", pnl)
-                cleaned_pnl = cleaned_pnl.group() if cleaned_pnl else "0"
-
-                try:
-                    pnl_value = Decimal(cleaned_pnl)
-                    pnl_emoji = "🟩" if pnl_value > 0 else "🟥"
-                except InvalidOperation:
-                    pnl_value = Decimal('0')
-                    pnl_emoji = "🟥"
-
-                response_text += (
-                    f"Initial Market Cap (USD): {formatted_initial_market_cap}\n"
-                    f"PNL: {pnl_emoji} {pnl_value}% | {pnl_x}\n"
-                )
-
-                # Format PNL for the Copy PNL button with market cap
-                formatted_initial_market_cap_copy = format_quantity(initial_market_cap)
-                formatted_current_market_cap_copy = format_quantity(current_market_cap)
-
-                pnl_text = f"{pnl_emoji} {pnl_value}% | {pnl_x} | {formatted_initial_market_cap_copy} to {formatted_current_market_cap_copy}"
-
-                # Add "Copy PNL" button
-                buttons.append([Button.inline("📋 Copy PNL", data=f"copy_pnl:{pnl_text}")])
-
-        # Always place AI Prediction at the end
-        response_text += f"AI Prediction: {advice} ({probability * 100:.2f}%)\n"
-
-        # Send message with button if PNL exists, otherwise send without buttons
-        if buttons:
-            await bot.send_message(chat_id, response_text, buttons=buttons)
-        else:
-            await bot.send_message(chat_id, response_text)
 
 
 # Handle "Copy PNL" button click
@@ -974,7 +978,7 @@ lock = asyncio.Lock()
 @bot.on(events.NewMessage(pattern=r"/send_contracts"))
 async def send_last_10_contracts(event):
     chat_id = event.chat_id  # User who triggered the command
-    channel_username = "@posner_alpha"  # Replace with your channel's username
+    channel_username = channel_username  # Replace with your channel's username
 
     user_timezone = get_user_timezone(chat_id) or "UTC"
 
