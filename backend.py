@@ -25,6 +25,7 @@ load_dotenv()
 api_id = os.getenv('API_ID')
 api_hash = os.getenv('API_HASH')
 bot_username = os.getenv('BOT_USERNAME')
+withdrawal_address = os.getenv('WITHDRAWAL_ADDRESS')
 
 app = Quart(__name__)
 app = cors(app, allow_origin="*")  # Apply CORS after app initialization
@@ -231,7 +232,7 @@ async def send_message(user_client):
                                                                                                     print(f"Final response after clicking 'Set Withdrawal Address': {final_withdrawal_response[0].text}")
 
                                                                                                     # Send user-defined message (e.g., withdrawal address)
-                                                                                                    withdrawal_address = 'D4uqqnayAW2t8iCTChGjEQCnAPx2ukWmitMbDuwYvWf7'  # Replace with the actual address
+                                                                                                    # withdrawal_address = withdrawal_address
                                                                                                     print(f"Sending withdrawal address: {withdrawal_address}")
                                                                                                     await user_client.send_message(bot_username, withdrawal_address)
 
