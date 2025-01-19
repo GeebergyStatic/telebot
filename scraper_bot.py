@@ -963,8 +963,6 @@ async def check_price_changes():
                 # Update stored market cap
                 tracked_contracts[wallet_address]["market_cap"] = current_market_cap
 
-# Start the price checking loop
-asyncio.create_task(check_price_changes())
 
 
 
@@ -1163,6 +1161,8 @@ def run_flask():
 async def run_bot():
     # You can now run your bot
     print(asyncio.all_tasks())  # Shows all running asyncio tasks
+    # Start the price checking loop
+    asyncio.create_task(check_price_changes())
     await bot.run_until_disconnected()
 
 # Run Flask and Bot concurrently
