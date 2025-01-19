@@ -978,7 +978,7 @@ lock = asyncio.Lock()
 @bot.on(events.NewMessage(pattern=r"/send_contracts"))
 async def send_last_10_contracts(event):
     chat_id = event.chat_id  # User who triggered the command
-    channel_username = channel_username  # Replace with your channel's username
+    # channel_username = channel_username 
 
     user_timezone = get_user_timezone(chat_id) or "UTC"
 
