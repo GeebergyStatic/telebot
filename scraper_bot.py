@@ -805,6 +805,7 @@ async def handle_user_message(event):
         wallet_address = match.group(0)
 
     if wallet_address:
+        print('wallet detected')
         # Track the contract if it's new
         if wallet_address not in tracked_contracts:
             tracked_contracts[wallet_address] = {
@@ -848,6 +849,7 @@ async def handle_user_message(event):
 
         # Check if the message contains only the contract address (plain contract address)
         if len(message.split()) == 1 and wallet_address:
+            print('message has wallet address')
             # Show contract details with the "Copy PNL" button if it is a plain contract address message
             if "initial_market_cap" in token_info:
                 initial_market_cap = token_info.get('initial_market_cap', 0)
