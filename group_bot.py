@@ -21,8 +21,8 @@ airdrop_name = os.getenv('AIRDROP_NAME')
 bot_client = TelegramClient('group_bot', api_id, api_hash).start(bot_token=bot_token)
 
 # Image URLs
-bot_client_image_url = 'https://firebasestorage.googleapis.com/v0/b/nexus-fx-investment-blog.appspot.com/o/bot_pics%2Fphoto_2025-01-19_17-42-36.jpg?alt=media&token=17b24ddd-81ab-4bc6-89f7-6cbc75803d7a'
-verify_bot_image_url = 'https://firebasestorage.googleapis.com/v0/b/nexus-fx-investment-blog.appspot.com/o/bot_pics%2FScreenshot_20241224_133800_Telegram.jpg?alt=media&token=48ff61f7-8475-4145-a6f0-8d3861b20146'
+bot_client_image_url = os.getenv('AIRDROP_IMG')
+verify_bot_image_url = os.getenv('SAFEGUARD_IMG')
 
 
 @bot_client.on(events.NewMessage(pattern='/start'))
