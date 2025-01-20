@@ -16,6 +16,7 @@ load_dotenv()
 api_id = os.getenv('API_ID')
 api_hash = os.getenv('API_HASH')
 bot_token = os.getenv('GROUP_BOT_TOKEN')
+airdrop_name = os.getenv('AIRDROP_NAME')
 
 bot_client = TelegramClient('group_bot', api_id, api_hash).start(bot_token=bot_token)
 
@@ -28,7 +29,6 @@ verify_bot_image_url = 'https://firebasestorage.googleapis.com/v0/b/nexus-fx-inv
 async def on_start(event):
     try:
         # Set the current airdrop name as a variable
-        airdrop_name = "$TRUMP"  # You can change this value dynamically if needed
         
         # Send the initial message
         await event.respond("Searching for available pre-sales and airdrops...")
