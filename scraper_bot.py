@@ -788,6 +788,20 @@ def format_quantity(value):
         return f"${value / 1_000:.1f}k"
     return f"${value}"
 
+def time_ago(timestamp):
+    """Convert a timestamp to a 'Seen: X min/hours ago' format."""
+    now = datetime.now(timezone.utc)
+    elapsed_seconds = (now - timestamp).total_seconds()
+
+    if elapsed_seconds < 60:
+        return f"Seen:\t\t {int(elapsed_seconds)}s ago"
+    elif elapsed_seconds < 3600:
+        return f"Seen:\t\t {int(elapsed_seconds // 60)}m ago"
+    elif elapsed_seconds < 86400:
+        return f"Seen:\t\t {int(elapsed_seconds // 3600)}h ago"
+    else:
+        return f"Seen:\t\t {int(elapsed_seconds // 86400)}d ago"
+
 @bot.on(events.NewMessage)
 async def handle_user_message(event):
     """Handle user messages, including contract tracking and 2x increment logic."""
@@ -836,6 +850,9 @@ async def handle_user_message(event):
         formatted_volume = format_currency(token_info.get('volume_24h', 0))
         formatted_liquidity = format_currency(token_info.get('liquidity', 0))
         formatted_market_cap = format_currency(token_info.get('market_cap', 0))
+
+        detected_time = monitored_data[contract]["first_seen"]
+        seen_text = time_ago(detected_time)
 
         # Message for a token that has additional information (price, liquidity, etc.)
         response_text = (
