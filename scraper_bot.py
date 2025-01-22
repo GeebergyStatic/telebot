@@ -970,10 +970,24 @@ async def check_price_changes():
                 tracked_contracts[wallet_address]["market_cap"] = current_market_cap
                 continue
 
+            # Check if market cap increased by 2x
             if current_market_cap >= previous_market_cap + 2 * previous_market_cap:
-                chat_id = data["chat_id"]  # Get chat_id
-                await bot.send_message(chat_id, f"📈 {wallet_address} has increased by 2x!", reply_to=data["message_id"])
+                # Format the PNL message
+                formatted_initial = format_quantity(previous_market_cap)
+                formatted_current = format_quantity(current_market_cap)
 
+                pnl_percentage = ((current_market_cap / previous_market_cap) - 1) * 100
+                pnl_x = f"{current_market_cap / previous_market_cap:.2f}x"
+
+                pnl_emoji = "🟩" if pnl_percentage > 0 else "🟥"
+
+                pnl_text = f"{pnl_emoji} {pnl_percentage:.2f}% | {pnl_x} | {formatted_initial} to {formatted_current}"
+
+                # Send the message with the formatted PNL text
+                chat_id = data["chat_id"]  # Get chat_id
+                await bot.send_message(chat_id, f"{pnl_text}", reply_to=data["message_id"])
+
+                # Update stored market cap
                 tracked_contracts[wallet_address]["market_cap"] = current_market_cap
 
 
