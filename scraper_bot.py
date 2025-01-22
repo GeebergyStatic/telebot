@@ -850,8 +850,10 @@ async def handle_user_message(event):
         formatted_liquidity = format_currency(token_info.get('liquidity', 0))
         formatted_market_cap = format_currency(token_info.get('market_cap', 0))
 
-        detected_time = monitored_data[wallet_address]["first_seen"]
-        seen_text = time_ago(detected_time)
+        # Get the detected time from monitored data and use time_ago() only if it's valid
+        detected_time = monitored_data[wallet_address].get("first_seen")
+        seen_text = time_ago(detected_time) if detected_time else None
+
 
         # Message for a token that has additional information (price, liquidity, etc.)
         response_text = (
@@ -906,12 +908,14 @@ async def handle_user_message(event):
 
                     # Add "Copy PNL" button
                     buttons = [Button.inline("📋 Copy PNL", data=f"copy_pnl:{pnl_text}")]
+                    # Send the message with the contract info and buttons if applicable
+                    await bot.send_message(chat_id, response_text, buttons=buttons)
                 else:
                     # If there are no updates to PNL or market cap, just send token details
                     buttons = []  # No button if no PNL update
+                    # Send the message with the contract info and buttons if applicable
+                    await bot.send_message(chat_id, response_text)
 
-                # Send the message with the contract info and buttons if applicable
-                await bot.send_message(chat_id, response_text, buttons=buttons)
 
         # Check 2x Increment logic (message contains contract address along with token info)
         current_market_cap = Decimal(token_info.get("market_cap", 0))
