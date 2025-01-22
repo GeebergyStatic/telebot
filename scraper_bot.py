@@ -850,7 +850,7 @@ async def handle_user_message(event):
         formatted_liquidity = format_currency(token_info.get('liquidity', 0))
         formatted_market_cap = format_currency(token_info.get('market_cap', 0))
 
-        detected_time = monitored_data[contract]["first_seen"]
+        detected_time = monitored_data[wallet_address]["first_seen"]
         seen_text = time_ago(detected_time)
 
         # Message for a token that has additional information (price, liquidity, etc.)
