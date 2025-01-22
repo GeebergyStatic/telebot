@@ -800,13 +800,15 @@ async def handle_user_message(event):
 
     # Check if the message contains a contract address (at least 40 alphanumeric characters)
     wallet_address = None
-    # match = re.search(r"\b[a-zA-Z0-9]{40}\b", message)
+
+    # Use re.search() instead of re.findall()
+    match = re.search(r"\b[a-zA-Z0-9]{40,}\b", message or "")
     # if match:
         # wallet_address = match.group(0)
 
-    wallet_address = re.findall(r"\b[a-zA-Z0-9]{40,}\b", message or "")
     print(f"message detected")
-    if wallet_address:
+    if match:
+        wallet_address = match.group(0)  # Extract the matched wallet address
         print(f"wallet detected")
         # Track the contract if it's new
         if wallet_address not in tracked_contracts:
@@ -850,7 +852,8 @@ async def handle_user_message(event):
         pnl_text = None  # Store formatted PNL for the button
 
         # Check if the message contains only the contract address (plain contract address)
-        if len(message.split()) == 1 and wallet_address:
+        if len(message.split()) == 1 and match:
+            wallet_address = match.group(0)  # Extract the matched wallet address
             print(f"message has wallet address")
             # Show contract details with the "Copy PNL" button if it is a plain contract address message
             if "initial_market_cap" in token_info:
