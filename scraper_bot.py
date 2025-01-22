@@ -804,7 +804,7 @@ async def handle_user_message(event):
     # if match:
         # wallet_address = match.group(0)
 
-    wallet_address = re.findall(r"\b[a-zA-Z0-9]{40,}\b", message.text or "")
+    wallet_address = re.findall(r"\b[a-zA-Z0-9]{40,}\b", message or "")
     print(f"message detected")
     if wallet_address:
         print(f"wallet detected")
