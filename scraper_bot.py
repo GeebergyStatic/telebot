@@ -908,7 +908,7 @@ async def handle_user_message(event):
                     buttons = [Button.inline("📋 Copy PNL", data=f"copy_pnl:{pnl_text}")]
                 else:
                     # If there are no updates to PNL or market cap, just send token details
-                    buttons = []
+                    buttons = []  # No button if no PNL update
 
                 # Send the message with the contract info and buttons if applicable
                 await bot.send_message(chat_id, response_text, buttons=buttons)
@@ -938,6 +938,7 @@ async def handle_user_message(event):
 
                 # Update stored market cap
                 tracked_contracts[wallet_address]["market_cap"] = current_market_cap
+
 
 
 # Handle "Copy PNL" button click
