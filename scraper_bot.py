@@ -817,8 +817,6 @@ async def handle_user_message(event):
 
     # Use re.search() instead of re.findall()
     match = re.search(r"\b[a-zA-Z0-9]{40,}\b", message or "")
-    # if match:
-        # wallet_address = match.group(0)
 
     print(f"message detected")
     if match:
@@ -828,7 +826,8 @@ async def handle_user_message(event):
         if wallet_address not in tracked_contracts:
             tracked_contracts[wallet_address] = {
                 "market_cap": None,  # Will be fetched
-                "message_id": event.message.id  # To reply later
+                "message_id": event.message.id,  # To reply later
+                "chat_id": chat_id  # Store chat ID to use in check_price_changes()
             }
 
             # Keep only the last 150 contracts
@@ -941,13 +940,11 @@ async def handle_user_message(event):
                 tracked_contracts[wallet_address]["market_cap"] = current_market_cap
 
 
-
 # Handle "Copy PNL" button click
 @bot.on(events.CallbackQuery(data=re.compile(b"copy_pnl:(.+)")))
 async def copy_pnl(event):
     pnl_text = event.data_match.group(1).decode()  # Extract PNL text
     await bot.send_message(event.chat_id, f"🔹 Copied PNL:\n`{pnl_text}`")
-
 
 
 async def check_price_changes():
@@ -964,27 +961,14 @@ async def check_price_changes():
             current_market_cap = Decimal(token_info.get("market_cap", 0))
             previous_market_cap = data["market_cap"]
 
-            # If it's the first check, store the initial market cap
             if previous_market_cap is None:
                 tracked_contracts[wallet_address]["market_cap"] = current_market_cap
                 continue
 
-            # Calculate the difference and check if it's a multiple of 2
             if current_market_cap >= previous_market_cap + 2 * previous_market_cap:
-                formatted_initial = format_quantity(previous_market_cap)
-                formatted_current = format_quantity(current_market_cap)
+                chat_id = data["chat_id"]  # Get chat_id
+                await bot.send_message(chat_id, f"📈 {wallet_address} has increased by 2x!", reply_to=data["message_id"])
 
-                pnl_percentage = ((current_market_cap / previous_market_cap) - 1) * 100
-                pnl_x = f"{current_market_cap / previous_market_cap:.2f}x"
-
-                pnl_emoji = "🟩" if pnl_percentage > 0 else "🟥"
-
-                pnl_text = f"{pnl_emoji} {pnl_percentage:.2f}% | {pnl_x} | {formatted_initial} to {formatted_current}"
-
-                # Reply to the original message with the contract address
-                await bot.send_message(event.chat_id, f"📈 {wallet_address} has increased by 2x!\n`{pnl_text}`", reply_to=data["message_id"])
-
-                # Update stored market cap
                 tracked_contracts[wallet_address]["market_cap"] = current_market_cap
 
 
