@@ -947,7 +947,7 @@ async def check_price_changes():
 
             if wallet_address in token_info_cache:
                 # Ensure the market cap is stored as a Decimal to avoid float precision issues
-                initial_market_cap = Decimal(token_info_cache[wallet_address].get("market_cap", 0))
+                initial_market_cap = token_info_cache[wallet_address]["market_cap"]
                 current_market_cap = Decimal(token_info.get("market_cap", 0))
                 previous_market_cap = data["market_cap"]
 
