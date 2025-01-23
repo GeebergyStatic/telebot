@@ -929,7 +929,7 @@ async def copy_pnl(event):
 
 
 async def check_price_changes():
-    """Periodically check if any contract's market cap has increased by 2x increments."""
+    """Periodically check if any contract's market cap has increased by at least 2x increments."""
     while True:
         await asyncio.sleep(60)  # Run every 60 seconds
 
@@ -944,14 +944,19 @@ async def check_price_changes():
 
             if previous_market_cap is None:
                 tracked_contracts[wallet_address]["market_cap"] = current_market_cap
+                tracked_contracts[wallet_address]["original_market_cap"] = current_market_cap  # Store original cap
                 continue
 
-            # Calculate the expected 2x increment from the original market cap
-            original_market_cap = data.get("original_market_cap", previous_market_cap)  # Store original cap if not set
-            expected_next_cap = (original_market_cap * ((current_market_cap // original_market_cap) * 2))
+            # Get the original market cap (first recorded market cap)
+            original_market_cap = data.get("original_market_cap", previous_market_cap)
 
-            # Check if the market cap has reached the expected next increment
-            if current_market_cap >= expected_next_cap:
+            # Calculate the next expected 2x increment
+            next_2x_cap = original_market_cap
+            while next_2x_cap <= current_market_cap:
+                next_2x_cap *= 2  # Move to the next 2x milestone
+
+            # If the current market cap is at least the last valid 2x increment, send an alert
+            if current_market_cap >= next_2x_cap / 2:
                 # Format the PNL message
                 formatted_initial = format_quantity(previous_market_cap)
                 formatted_current = format_quantity(current_market_cap)
@@ -969,7 +974,7 @@ async def check_price_changes():
 
                 # Update stored market cap and original market cap
                 tracked_contracts[wallet_address]["market_cap"] = current_market_cap
-                tracked_contracts[wallet_address]["original_market_cap"] = original_market_cap  # Ensure original cap is retained
+                tracked_contracts[wallet_address]["original_market_cap"] = original_market_cap  # Retain original cap
 
 
 
