@@ -776,8 +776,8 @@ async def monitor_channels(event):
                                             "chat_id": chat_id  # Store chat ID to use in check_price_changes()
                                         }
 
-                                        # Keep only the last 150 contracts
-                                        if len(tracked_contracts) > 150:
+                                        # Keep only the last 500 contracts
+                                        if len(tracked_contracts) > 500:
                                             tracked_contracts.pop(next(iter(tracked_contracts)))  # Remove oldest entry
                 except Exception as e:
                     await bot.send_message(chat_id, f"Error monitoring {channel_url}: {e}")
@@ -934,7 +934,7 @@ async def check_price_changes():
         await asyncio.sleep(60)  # Run every 60 seconds
 
         for wallet_address, data in tracked_contracts.items():
-            print(f"wallet_address: {wallet_address}")
+            # print(f"wallet_address: {wallet_address}")
             token_info = get_token_info(wallet_address)
 
             if "error" in token_info:
