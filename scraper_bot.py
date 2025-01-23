@@ -661,6 +661,8 @@ async def clear_all_tasks(event):
 
 # Telegram bot monitoring function
 # Monitoring function
+# Store last 150 contract addresses with their market cap
+tracked_contracts = {}  
 
 async def safe_send_message(chat_id, message_text):
     try:
@@ -712,8 +714,6 @@ async def monitor_channels(event):
     seen_contracts_global = {}
     seen_contracts_per_channel = {}
 
-    # Store last 150 contract addresses with their market cap
-    tracked_contracts = {} 
 
     async def monitor():
         while True:
