@@ -768,9 +768,12 @@ async def monitor_channels(event):
                                     sent_message = await bot.send_message(chat_id, response_text)
                                     message_id = sent_message.id
 
-                                    # Track the contract if it's new
-                                    if contract not in tracked_contracts:
-                                        tracked_contracts[contract] = {
+                                    # Ensure tracked_contracts stores per-channel uniqueness
+                                    contract_key = (contract, chat_id)  # Unique identifier (contract + chat)
+
+                                    # Track the contract if it's new in this channel
+                                    if contract_key not in tracked_contracts:
+                                        tracked_contracts[contract_key] = {
                                             "market_cap": None,  # Will be fetched
                                             "message_id": message_id,  # To reply later
                                             "chat_id": chat_id  # Store chat ID to use in check_price_changes()
@@ -933,7 +936,7 @@ async def check_price_changes():
     while True:
         await asyncio.sleep(60)  # Run every 60 seconds
 
-        for wallet_address, data in tracked_contracts.items():
+        for (wallet_address, chat_id), data in tracked_contracts.items():  # Adjusted to unpack tuple keys
             token_info = get_token_info(wallet_address)
 
             if "error" in token_info:
@@ -943,9 +946,9 @@ async def check_price_changes():
             previous_market_cap = data["market_cap"]
 
             if previous_market_cap is None:
-                tracked_contracts[wallet_address]["market_cap"] = current_market_cap
-                tracked_contracts[wallet_address]["original_market_cap"] = current_market_cap  # Store original cap
-                tracked_contracts[wallet_address]["last_triggered_cap"] = current_market_cap  # Initialize milestone
+                tracked_contracts[(wallet_address, chat_id)]["market_cap"] = current_market_cap
+                tracked_contracts[(wallet_address, chat_id)]["original_market_cap"] = current_market_cap  # Store original cap
+                tracked_contracts[(wallet_address, chat_id)]["last_triggered_cap"] = current_market_cap  # Initialize milestone
                 continue
 
             # Get the original market cap and last triggered milestone
@@ -969,12 +972,11 @@ async def check_price_changes():
                 pnl_text = f"{pnl_emoji} {pnl_percentage:.2f}% | {pnl_x} | {formatted_initial} to {formatted_current}"
 
                 # Send the message with the formatted PNL text
-                chat_id = data["chat_id"]
                 await bot.send_message(chat_id, f"{pnl_text}", reply_to=data["message_id"])
 
                 # Update stored market cap and last triggered milestone
-                tracked_contracts[wallet_address]["market_cap"] = current_market_cap
-                tracked_contracts[wallet_address]["last_triggered_cap"] = next_trigger_cap  # Move to next milestone
+                tracked_contracts[(wallet_address, chat_id)]["market_cap"] = current_market_cap
+                tracked_contracts[(wallet_address, chat_id)]["last_triggered_cap"] = next_trigger_cap  # Move to next milestone
 
 
 
@@ -1068,7 +1070,24 @@ async def send_last_10_contracts(event):
                     f"🤖 **AI Prediction:** {advice} ({probability * 100:.2f}%)\n"
                 )
 
-                await bot.send_message(channel_username, response_text)
+                sent_message = await bot.send_message(channel_username, response_text)
+                channel_message_id = sent_message.id
+                
+                # Ensure tracked_contracts stores per-channel uniqueness
+                contract_key = (contract, channel_username)  # Unique identifier (contract + chat)
+
+                # Track the contract if it's new in this channel
+                if contract_key not in tracked_contracts:
+                    tracked_contracts[contract_key] = {
+                        "market_cap": None,  # Will be fetched
+                        "message_id": channel_message_id,  # To reply later
+                        "chat_id": channel_username  # Store chat ID to use in check_price_changes()
+                    }
+
+                    # Keep only the last 300 contracts
+                    if len(tracked_contracts) > 300:
+                        tracked_contracts.pop(next(iter(tracked_contracts)))  # Remove oldest entry
+                        
                 sent_contracts.add(contract)  # Mark contract as sent
 
 
