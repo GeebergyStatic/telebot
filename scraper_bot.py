@@ -712,6 +712,9 @@ async def monitor_channels(event):
     seen_contracts_global = {}
     seen_contracts_per_channel = {}
 
+    # Store last 150 contract addresses with their market cap
+    tracked_contracts = {} 
+
     async def monitor():
         while True:
             for channel_url in channels:
@@ -762,7 +765,20 @@ async def monitor_channels(event):
                                         f"Detected {monitored_data[contract]['count']} times across the following channels:\n{details_text}"
                                     )
 
-                                    await bot.send_message(chat_id, response_text)
+                                    sent_message = await bot.send_message(chat_id, response_text)
+                                    message_id = sent_message.id
+
+                                    # Track the contract if it's new
+                                    if contract not in tracked_contracts:
+                                        tracked_contracts[contract] = {
+                                            "market_cap": None,  # Will be fetched
+                                            "message_id": message_id,  # To reply later
+                                            "chat_id": chat_id  # Store chat ID to use in check_price_changes()
+                                        }
+
+                                        # Keep only the last 150 contracts
+                                        if len(tracked_contracts) > 150:
+                                            tracked_contracts.pop(next(iter(tracked_contracts)))  # Remove oldest entry
                 except Exception as e:
                     await bot.send_message(chat_id, f"Error monitoring {channel_url}: {e}")
 
@@ -776,9 +792,6 @@ async def monitor_channels(event):
 
 
 # General message
-# Store last 150 contract addresses with their market cap
-# Store last 150 contract addresses with their market cap
-tracked_contracts = {}  # {wallet_address: {"market_cap": last_market_cap, "message_id": message_id}}
 
 def format_quantity(value):
     """Format numbers as K or M for readability."""
@@ -822,17 +835,6 @@ async def handle_user_message(event):
     if match:
         wallet_address = match.group(0)  # Extract the matched wallet address
         print(f"wallet detected")
-        # Track the contract if it's new
-        if wallet_address not in tracked_contracts:
-            tracked_contracts[wallet_address] = {
-                "market_cap": None,  # Will be fetched
-                "message_id": event.message.id,  # To reply later
-                "chat_id": chat_id  # Store chat ID to use in check_price_changes()
-            }
-
-            # Keep only the last 150 contracts
-            if len(tracked_contracts) > 150:
-                tracked_contracts.pop(next(iter(tracked_contracts)))  # Remove oldest entry
 
         token_info = get_token_info(wallet_address)
 
@@ -917,32 +919,6 @@ async def handle_user_message(event):
                     await bot.send_message(chat_id, response_text)
 
 
-        # Check 2x Increment logic (message contains contract address along with token info)
-        current_market_cap = Decimal(token_info.get("market_cap", 0))
-        previous_market_cap = tracked_contracts[wallet_address]["market_cap"]
-
-        # If it's the first check, store the initial market cap
-        if previous_market_cap is None:
-            tracked_contracts[wallet_address]["market_cap"] = current_market_cap
-        else:
-            # Check if the market cap has increased by exactly 2x
-            if current_market_cap >= previous_market_cap + 2 * previous_market_cap:
-                formatted_initial = format_quantity(previous_market_cap)
-                formatted_current = format_quantity(current_market_cap)
-
-                pnl_percentage = ((current_market_cap / previous_market_cap) - 1) * 100
-                pnl_x = f"{current_market_cap / previous_market_cap:.2f}x"
-
-                pnl_emoji = "🟩" if pnl_percentage > 0 else "🟥"
-
-                pnl_text = f"{pnl_emoji} {pnl_percentage:.2f}% | {pnl_x} | {formatted_initial} to {formatted_current}"
-
-                # Reply to the original message with the contract address
-                await bot.send_message(chat_id, f"`{pnl_text}`", reply_to=event.message.id)
-
-                # Update stored market cap
-                tracked_contracts[wallet_address]["market_cap"] = current_market_cap
-
 
 
 # Handle "Copy PNL" button click
@@ -958,6 +934,7 @@ async def check_price_changes():
         await asyncio.sleep(60)  # Run every 60 seconds
 
         for wallet_address, data in tracked_contracts.items():
+            print(wallet_address)
             token_info = get_token_info(wallet_address)
 
             if "error" in token_info:
