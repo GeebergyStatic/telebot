@@ -934,7 +934,6 @@ async def check_price_changes():
         await asyncio.sleep(60)  # Run every 60 seconds
 
         for wallet_address, data in tracked_contracts.items():
-            # print(f"wallet_address: {wallet_address}")
             token_info = get_token_info(wallet_address)
 
             if "error" in token_info:
@@ -947,8 +946,12 @@ async def check_price_changes():
                 tracked_contracts[wallet_address]["market_cap"] = current_market_cap
                 continue
 
-            # Check if market cap increased by 2x
-            if current_market_cap >= previous_market_cap + 2 * previous_market_cap:
+            # Calculate the expected 2x increment from the original market cap
+            original_market_cap = data.get("original_market_cap", previous_market_cap)  # Store original cap if not set
+            expected_next_cap = (original_market_cap * ((current_market_cap // original_market_cap) * 2))
+
+            # Check if the market cap has reached the expected next increment
+            if current_market_cap >= expected_next_cap:
                 # Format the PNL message
                 formatted_initial = format_quantity(previous_market_cap)
                 formatted_current = format_quantity(current_market_cap)
@@ -964,8 +967,9 @@ async def check_price_changes():
                 chat_id = data["chat_id"]  # Get chat_id
                 await bot.send_message(chat_id, f"{pnl_text}", reply_to=data["message_id"])
 
-                # Update stored market cap
+                # Update stored market cap and original market cap
                 tracked_contracts[wallet_address]["market_cap"] = current_market_cap
+                tracked_contracts[wallet_address]["original_market_cap"] = original_market_cap  # Ensure original cap is retained
 
 
 
