@@ -795,14 +795,16 @@ async def monitor_channels(event):
 
 
 # General message
-
+# Helper function: Format quantity with B/M/K notation
 def format_quantity(value):
-    """Format numbers as K or M for readability."""
-    if value >= 1_000_000:
+    if value >= 1_000_000_000:  # Check for billions
+        return f"${value / 1_000_000_000:.2f}b"
+    elif value >= 1_000_000:  # Check for millions
         return f"${value / 1_000_000:.2f}m"
-    elif value >= 1_000:
+    elif value >= 1_000:  # Check for thousands
         return f"${value / 1_000:.1f}k"
-    return f"${value}"
+    return f"${value}"  # Return the original value if less than 1k
+
 
 def time_ago(timestamp):
     """Convert a timestamp to a 'Seen: X min/hours ago' format."""
@@ -1002,12 +1004,16 @@ async def send_last_10_contracts(event):
 
 
     # Helper function: Format quantity with K/M notation
+    # Helper function: Format quantity with B/M/K notation
     def format_quantity(value):
-        if value >= 1_000_000:
+        if value >= 1_000_000_000:  # Check for billions
+            return f"${value / 1_000_000_000:.2f}b"
+        elif value >= 1_000_000:  # Check for millions
             return f"${value / 1_000_000:.2f}m"
-        elif value >= 1_000:
+        elif value >= 1_000:  # Check for thousands
             return f"${value / 1_000:.1f}k"
-        return f"${value}"
+        return f"${value}"  # Return the original value if less than 1k
+
 
     def time_ago(timestamp):
         """Convert a timestamp to a 'Seen: X min/hours ago' format."""
