@@ -776,8 +776,8 @@ async def monitor_channels(event):
                                             "chat_id": chat_id  # Store chat ID to use in check_price_changes()
                                         }
 
-                                        # Keep only the last 500 contracts
-                                        if len(tracked_contracts) > 500:
+                                        # Keep only the last 300 contracts
+                                        if len(tracked_contracts) > 300:
                                             tracked_contracts.pop(next(iter(tracked_contracts)))  # Remove oldest entry
                 except Exception as e:
                     await bot.send_message(chat_id, f"Error monitoring {channel_url}: {e}")
@@ -957,12 +957,12 @@ async def check_price_changes():
 
             # Check if market cap has reached the next milestone
             if current_market_cap >= next_trigger_cap:
-                # Format the PNL message
-                formatted_initial = format_quantity(previous_market_cap)
+                # Format the PNL message (Fix: Use `original_market_cap` for PNL calculations)
+                formatted_initial = format_quantity(original_market_cap)  # Use original market cap
                 formatted_current = format_quantity(current_market_cap)
 
-                pnl_percentage = ((current_market_cap / previous_market_cap) - 1) * 100
-                pnl_x = f"{current_market_cap / previous_market_cap:.2f}x"
+                pnl_percentage = ((current_market_cap / original_market_cap) - 1) * 100  # Fix: Use original cap
+                pnl_x = f"{current_market_cap / original_market_cap:.2f}x"  # Fix: Use original cap
 
                 pnl_emoji = "🟩" if pnl_percentage > 0 else "🟥"
 
