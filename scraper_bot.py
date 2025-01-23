@@ -934,7 +934,7 @@ async def check_price_changes():
         await asyncio.sleep(60)  # Run every 60 seconds
 
         for wallet_address, data in tracked_contracts.items():
-            print(wallet_address)
+            print(f"wallet_address: {wallet_address}")
             token_info = get_token_info(wallet_address)
 
             if "error" in token_info:
