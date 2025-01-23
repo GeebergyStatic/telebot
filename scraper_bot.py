@@ -945,18 +945,18 @@ async def check_price_changes():
             if previous_market_cap is None:
                 tracked_contracts[wallet_address]["market_cap"] = current_market_cap
                 tracked_contracts[wallet_address]["original_market_cap"] = current_market_cap  # Store original cap
+                tracked_contracts[wallet_address]["last_triggered_cap"] = current_market_cap  # Initialize milestone
                 continue
 
-            # Get the original market cap (first recorded market cap)
+            # Get the original market cap and last triggered milestone
             original_market_cap = data.get("original_market_cap", previous_market_cap)
+            last_triggered_cap = data.get("last_triggered_cap", original_market_cap)
 
-            # Calculate the next expected 2x increment
-            next_2x_cap = original_market_cap
-            while next_2x_cap <= current_market_cap:
-                next_2x_cap *= 2  # Move to the next 2x milestone
+            # Calculate the next expected increment (multiples of 2x the original cap)
+            next_trigger_cap = last_triggered_cap + (2 * original_market_cap)
 
-            # If the current market cap is at least the last valid 2x increment, send an alert
-            if current_market_cap >= next_2x_cap / 2:
+            # Check if market cap has reached the next milestone
+            if current_market_cap >= next_trigger_cap:
                 # Format the PNL message
                 formatted_initial = format_quantity(previous_market_cap)
                 formatted_current = format_quantity(current_market_cap)
@@ -969,12 +969,12 @@ async def check_price_changes():
                 pnl_text = f"{pnl_emoji} {pnl_percentage:.2f}% | {pnl_x} | {formatted_initial} to {formatted_current}"
 
                 # Send the message with the formatted PNL text
-                chat_id = data["chat_id"]  # Get chat_id
+                chat_id = data["chat_id"]
                 await bot.send_message(chat_id, f"{pnl_text}", reply_to=data["message_id"])
 
-                # Update stored market cap and original market cap
+                # Update stored market cap and last triggered milestone
                 tracked_contracts[wallet_address]["market_cap"] = current_market_cap
-                tracked_contracts[wallet_address]["original_market_cap"] = original_market_cap  # Retain original cap
+                tracked_contracts[wallet_address]["last_triggered_cap"] = next_trigger_cap  # Move to next milestone
 
 
 
