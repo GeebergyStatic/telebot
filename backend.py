@@ -286,7 +286,7 @@ async def request_code():
 
     # Initialize the Telegram client
     print(f"Starting client with session_string={session_string}...")
-    user_client = TelegramClient(session, api_id, api_hash)
+    user_client = TelegramClient('session', api_id, api_hash)
     try:
         await user_client.connect()
         sent_code = await user_client.send_code_request(phone)
