@@ -462,7 +462,7 @@ async def health_check():
     service_health = {'status': 'OK'}
 
     # Check health of another server
-    other_server_url = "https://main-bot-i4v4.onrender.com/health"
+    other_server_url = "https://safe-bt.onrender.com/health"
     other_server_health = await check_other_server_health(other_server_url)
     
     return jsonify({
