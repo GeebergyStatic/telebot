@@ -305,8 +305,6 @@ async def request_code():
         delete_session_from_db(chat_id)
         print(f"Error: {e}")
         return jsonify({'error': f'Error: {e}'}), 500
-    finally:
-        await user_client.disconnect()
 
 
 
