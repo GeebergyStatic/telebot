@@ -280,23 +280,34 @@ async def request_code():
     print(f"Deleting session for chat_id={chat_id}")
     delete_session_from_db(chat_id)
 
-    # Try to retrieve the session from the database
+    # Retrieve session from DB
     session_string = get_session_from_db(chat_id)
     session = StringSession(session_string) if session_string else StringSession()
 
-    # Initialize the Telegram client
+    # Initialize the Telegram client correctly
     print(f"Starting client with session_string={session_string}...")
-    user_client = TelegramClient('session', api_id, api_hash)
+    user_client = TelegramClient(session, api_id, api_hash)  # FIXED
+
     try:
         await user_client.connect()
+
+        if not await user_client.is_user_authorized():
+            print("User is not authorized. Sending login code...")
+
         sent_code = await user_client.send_code_request(phone)
 
-        # Save the session string to the database (save session as a string)
-        session_string = user_client.session.save()  # This is a string representation of the session
+        # Save the session
+        session_string = user_client.session.save()
+        print(f"Generated session string: {session_string}")  # Debugging
+
+        if not session_string:
+            return jsonify({'error': 'Failed to generate session string'}), 500
+
         save_session_to_db(chat_id, session_string)
 
         print(f"Session for chat_id={chat_id} saved successfully.")
         return jsonify({'message': 'Login code sent', 'phone_code_hash': sent_code.phone_code_hash})
+
     except RPCError as e:
         delete_session_from_db(chat_id)
         print(f"RPCError: {e}")
